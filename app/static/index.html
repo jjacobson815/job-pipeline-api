@@ -123,6 +123,10 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         <span>Launch Pipeline</span>
                     </button>
+                    <button onclick="switchTab('history'); fetchHistory();" id="btn-history" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-slate-200 hover:bg-white/5 border-l-2 border-transparent">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>Run History</span>
+                    </button>
                     <button onclick="switchTab('workers')" id="btn-workers" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-slate-200 hover:bg-white/5 border-l-2 border-transparent">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                         <span>Celery Workers</span>
@@ -326,6 +330,18 @@
                 </div>
             </div>
 
+            <!-- SECTION 4: HISTORY TAB -->
+            <div id="tab-history" class="hidden space-y-8">
+                <div>
+                    <h2 class="text-2xl font-bold font-outfit tracking-wide text-white">Pipeline Run History</h2>
+                    <p class="text-sm text-slate-400">View and reload detailed results from previous alignment runs saved in your serverless database.</p>
+                </div>
+
+                <div class="grid grid-cols-1 gap-6" id="history-list">
+                    <!-- Loaded dynamically -->
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -377,7 +393,7 @@
 
         // Toggle active tabs
         function switchTab(tabId) {
-            const tabs = ['dashboard', 'new-run', 'workers'];
+            const tabs = ['dashboard', 'new-run', 'workers', 'history'];
             tabs.forEach(t => {
                 const el = document.getElementById(`tab-${t}`);
                 const btn = document.getElementById(`btn-${t}`);
@@ -779,6 +795,85 @@
             // Update average score
             const avg = countScores > 0 ? (totalScore / countScores) : 0;
             document.getElementById('stat-avg-score').innerText = `${avg.toFixed(1)}%`;
+        }
+
+        async function fetchHistory() {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = `
+                <div class="glass-card p-8 rounded-2xl text-center">
+                    <p class="text-slate-400 animate-pulse">Loading execution logs from Cloud Redis...</p>
+                </div>`;
+                
+            try {
+                const headers = { 'Content-Type': 'application/json' };
+                const apiKey = getApiKey();
+                if (apiKey) {
+                    headers['X-API-Key'] = apiKey;
+                }
+                const response = await fetch('/api/v1/pipeline/history', { headers });
+                if (!response.ok) throw new Error('Failed to load history');
+                const data = await response.json();
+                
+                if (data.length === 0) {
+                    historyList.innerHTML = `
+                        <div class="glass-card p-8 rounded-2xl text-center space-y-3">
+                            <p class="text-slate-400">No previous runs saved in Cloud Redis yet.</p>
+                            <p class="text-xs text-slate-500">History will record automatically when a new pipeline execution finishes successfully.</p>
+                        </div>`;
+                    return;
+                }
+                
+                historyList.innerHTML = '';
+                data.forEach((run, idx) => {
+                    const localTime = new Date(run.timestamp).toLocaleString();
+                    const statusText = `${run.succeeded_jobs}/${run.total_jobs} Jobs Ingested`;
+                    
+                    const card = document.createElement('div');
+                    card.className = "glass-card p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-4 border-neon-cyan hover:bg-white/5 transition duration-200";
+                    
+                    card.innerHTML = `
+                        <div class="space-y-2">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-sm font-bold text-white font-outfit">Run #${data.length - idx}</span>
+                                <span class="text-xxs px-2 py-0.5 rounded bg-space-black border border-white/10 text-slate-400 font-mono">${run.run_id}</span>
+                            </div>
+                            <div class="text-xs text-slate-400 space-y-1">
+                                <p>📅 Timestamp: ${localTime}</p>
+                                <p>🔍 Status: ${statusText}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-6">
+                            <div class="text-right">
+                                <p class="text-xxs uppercase tracking-wider text-slate-500 font-bold">Avg Fit Score</p>
+                                <p class="text-2xl font-extrabold text-neon-cyan font-outfit">${run.avg_score}%</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Build action button to prevent quoting issues
+                    const btnContainer = card.querySelector('.flex.items-center.gap-6');
+                    const loadBtn = document.createElement('button');
+                    loadBtn.className = "px-4 py-2 bg-white/5 hover:bg-neon-cyan hover:text-black rounded-lg text-xs font-semibold border border-white/10 hover:border-neon-cyan transition-all";
+                    loadBtn.innerText = "LOAD DETAILS";
+                    loadBtn.addEventListener('click', () => {
+                        loadRunResult(run.result);
+                    });
+                    btnContainer.appendChild(loadBtn);
+                    
+                    historyList.appendChild(card);
+                });
+            } catch (e) {
+                historyList.innerHTML = `
+                    <div class="glass-card p-8 rounded-2xl text-center border-neon-pink/20">
+                        <p class="text-neon-pink font-semibold">⚠️ Failed to retrieve history logs.</p>
+                        <p class="text-xs text-slate-400 mt-2">Error details: ${e.message}</p>
+                    </div>`;
+            }
+        }
+
+        function loadRunResult(result) {
+            displayResults(result);
+            switchTab('dashboard');
         }
     </script>
 </body>

@@ -247,8 +247,48 @@ def full_pipeline(
             logger.exception("Sync step failed inside full_pipeline: %s", exc)
             raise self.retry(exc=exc)
 
-    return {
+    result = {
         "ingestion": ingestion_result,
         "analyses": analysis_results,
         "teal_sync": teal_result,
     }
+
+    # Persist the run metadata and result to Redis for historical tracking
+    try:
+        import json
+        import time
+        import redis
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        r = redis.Redis.from_url(settings.redis_url_str)
+        run_id = self.request.id or f"run_{int(time.time())}"
+        
+        succeeded_count = len(ingestion_result.get("succeeded", []))
+        total_count = len(urls)
+        
+        # Calculate average score of successfully analyzed jobs
+        valid_scores = [
+            a["fit_score"]["overall_score"]
+            for a in analysis_results
+            if a.get("fit_score") and a["fit_score"].get("overall_score") is not None
+        ]
+        avg_score = sum(valid_scores) / len(valid_scores) if valid_scores else 0.0
+
+        run_summary = {
+            "run_id": run_id,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "total_jobs": total_count,
+            "succeeded_jobs": succeeded_count,
+            "avg_score": round(avg_score, 1),
+            "result": result
+        }
+        
+        # Save run summary to Redis list and keep it capped at last 20 entries
+        r.lpush("pipeline:runs", json.dumps(run_summary))
+        r.ltrim("pipeline:runs", 0, 19)
+        logger.info("Successfully persisted pipeline run %s to Redis history", run_id)
+    except Exception as persist_exc:
+        logger.warning("Failed to persist pipeline run to Redis history: %s", persist_exc)
+
+    return result

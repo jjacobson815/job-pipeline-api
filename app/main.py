@@ -186,6 +186,23 @@ def create_app() -> FastAPI:
         return await service.discover_jobs(body.resume_text)
 
     @api_router.get(
+        "/pipeline/history",
+        tags=["pipeline"],
+    )
+    async def get_pipeline_history() -> list[dict]:
+        """Fetch the history of previous pipeline runs from Redis."""
+        import json
+        import redis
+
+        try:
+            r = redis.Redis.from_url(settings.redis_url_str)
+            runs = r.lrange("pipeline:runs", 0, -1)
+            return [json.loads(run) for run in runs]
+        except Exception as exc:
+            logger.warning("Failed to fetch pipeline history from Redis: %s", exc)
+            return []
+
+    @api_router.get(
         "/tasks/{task_id}",
         tags=["pipeline"],
     )
