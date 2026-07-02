@@ -1,0 +1,27 @@
+# ===========================================================================
+# Python dependencies — Job Pipeline API
+# ===========================================================================
+
+# --- Framework ---
+fastapi>=0.115.0,<1.0
+uvicorn[standard]>=0.32.0,<1.0
+uvloop>=0.21.0; sys_platform != "win32"
+httptools>=0.6.0
+
+# --- Data validation ---
+pydantic>=2.9.0,<3.0
+pydantic-settings>=2.6.0,<3.0
+
+# --- Async HTTP client ---
+httpx>=0.28.0,<1.0
+
+# --- Task queue ---
+celery[redis]>=5.4.0,<6.0
+redis>=5.2.0,<6.0
+
+# --- Testing ---
+pytest>=8.3.0,<9.0
+pytest-asyncio>=0.25.0,<1.0
+
+# --- Logging (structured) ---
+python-json-logger>=3.0.0,<4.0

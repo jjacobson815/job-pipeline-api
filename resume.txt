@@ -1,0 +1,38 @@
+JEREMIAH JACOBSON
+Dayton, Ohio | 513-409-1663 | jjacobson815@outlook.com
+
+PROFESSIONAL PROFILE
+Senior Full Stack Engineer & Technical Lead with 5+ years of experience architecting security-focused enterprise applications. Proven track record in modernizing legacy systems and designing complex Identity & Access Management (IAM) solutions, including hardware-based authentication and secure sidecar patterns. Expert at optimizing high-volume data performance and engineering responsive, geospatial React visualizations in compliance-driven environments.
+
+TECHNICAL EXPERTISE
+Category
+Technologies
+ 
+Security & Architecture
+IAM (CAC/SMART Card), RBAC, OAuth2/JWT, Microservices, Sidecar Patterns, RESTful APIs, X.509 certificate management.
+Frontend
+React (Hooks, Context, Redux), GeoJSON, high-performance rendering, custom mapping algorithms.
+Backend & DevOps
+.NET Core, C#, SQL (MSSQL), PowerShell automation, Docker, CI/CD Pipelines, Entity Framework, LINQ, Git, Playwright.
+
+
+PROFESSIONAL EXPERIENCE
+Edaptive Computing Inc. | Software Developer III & Deputy Tech Lead
+Aug 2019 – March 2025
+Secure Identity Architecture: Designed a .NET identity sidecar for hardware-based authentication (CAC/SMART cards), implementing automated X.509 certificate generation to streamline secure CI/ CD pipelines.
+Performance Engineering: Optimized database retrieval for 15,000+ records, reducing response times from over 3 minutes to sub-second by resolving circular reference serialization and implementing flat DTO models.
+High-Performance UI: Engineered an interactive global dashboard using GeoJSON and React; developed a custom mapping algorithm and simplified geometries to ensure consistent 60fps responsiveness.
+Workflow Orchestration: Built a centralized command center using a multi-stage state machine to govern the lifecycle of complex operational requests and ensure compliance reporting stages.
+Technical Leadership: Served as Deputy Tech Lead for a mission-critical security software team; managed sprint planning, peer reviews, and mentored 4 junior developers.
+
+Independent Professional Development | Full-Stack Architectural Training
+March 2025 – Present
+Advanced full-stack architectural training focused on React state management, custom hooks, and high-performance component rendering.
+
+Edaptive Computing Inc. | Software Engineering Intern
+Jan 2019 – Aug 2019
+Developed and debugged enterprise ASP.NET MVC applications and automated testing suites.
+
+EDUCATION
+Bachelor of Science in Computer Science (Candidate) | Wright State University (100+ Credits Completed)
+Associate of Science | Sinclair Community College
