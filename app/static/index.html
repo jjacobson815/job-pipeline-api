@@ -506,7 +506,8 @@
                 if (data.status === 'success' && data.urls.length > 0) {
                     textarea.value = data.urls.join('\n');
                     if (data.fallback) {
-                        statusEl.innerText = `⚠️ Rate limits hit or search engine blocked. Loaded ${data.urls.length} pre-vetted matching job templates!`;
+                        const src = data.fallback_source || "pre-vetted templates";
+                        statusEl.innerText = `⚠️ Rate limits hit or search engine blocked. Loaded ${data.urls.length} matching jobs via ${src}!`;
                         statusEl.classList.add('text-amber-400');
                         statusEl.classList.remove('text-slate-400');
                     } else {

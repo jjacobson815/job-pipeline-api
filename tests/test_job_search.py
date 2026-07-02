@@ -19,5 +19,5 @@ async def test_job_search_fallback_trigger(mock_settings: Settings):
     
     assert res["status"] == "success"
     assert res["fallback"] is True
-    assert len(res["urls"]) == 5
-    assert "turing.com" in res["urls"][0]
+    assert len(res["urls"]) > 0
+    assert res["fallback_source"] in ("Remotive API", "Pre-vetted templates")

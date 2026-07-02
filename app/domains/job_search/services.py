@@ -36,11 +36,32 @@ class JobSearchService:
         # Deduplicate URLs
         unique_urls = list(dict.fromkeys(all_urls))
         
-        # Fallback to pre-vetted job postings if search engine is blocked or rate limited
+        # Fallback logic if search engine or Gemini is rate limited / blocked
         is_fallback = False
+        fallback_source = None
+        
+        if not unique_urls:
+            # Try to extract keywords from resume locally and query public open API
+            resume_lower = resume_text.lower()
+            common_tech = ["react", "python", "fastapi", "django", "c#", ".net", "javascript", "typescript", "kubernetes", "aws", "docker", "angular", "vue", "golang", "java", "c++", "rust"]
+            matched_tech = [tech for tech in common_tech if tech in resume_lower]
+            search_term = matched_tech[0] if matched_tech else "software engineer"
+            
+            logger.info("Search queries returned 0 results. Fetching live fallback jobs from Remotive API for '%s'...", search_term)
+            try:
+                remotive_urls = await self._discover_remotive_jobs(search_term)
+                if remotive_urls:
+                    unique_urls = remotive_urls
+                    is_fallback = True
+                    fallback_source = "Remotive API"
+            except Exception as e:
+                logger.warning("Remotive API lookup failed: %s", e)
+                
+        # Absolute last resort fallback using pre-vetted template postings
         if not unique_urls:
             is_fallback = True
-            logger.info("Search queries returned 0 results. Injecting high-quality fallback job postings.")
+            fallback_source = "Pre-vetted templates"
+            logger.info("Injecting local template job postings as last-resort fallback.")
             unique_urls = [
                 "https://www.turing.com/jobs/remote-dotnet-core-developer",
                 "https://www.remoterocketship.com/company/hre-group-br/jobs/senior-full-stack-engineer-net-c-react-js-angular-worldwide-remote/",
@@ -55,7 +76,8 @@ class JobSearchService:
             "status": "success",
             "queries": queries,
             "urls": unique_urls[:15],  # Cap at 15 most relevant job postings
-            "fallback": is_fallback
+            "fallback": is_fallback,
+            "fallback_source": fallback_source
         }
 
     async def _generate_search_queries(self, resume_text: str) -> list[str]:
@@ -229,5 +251,19 @@ class JobSearchService:
                 filtered_links.append(l)
 
         return list(dict.fromkeys(filtered_links))
+
+    async def _discover_remotive_jobs(self, search_term: str) -> list[str]:
+        """Fetch remote job URLs from Remotive's public open API using a search term."""
+        url = f"https://remotive.com/api/remote-jobs?search={urllib.parse.quote(search_term)}"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(url, headers=self._headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    jobs = data.get("jobs", [])
+                    return [job["url"] for job in jobs if "url" in job]
+        except Exception as e:
+            logger.warning("Failed to query Remotive API: %s", e)
+        return []
 
 
