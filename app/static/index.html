@@ -571,7 +571,17 @@
 
                 if (!resp.ok) {
                     const errDetail = await resp.json();
-                    throw new Error(errDetail.detail || 'Failed API call');
+                    let errMsg = 'Failed API call';
+                    if (errDetail && errDetail.detail) {
+                        if (typeof errDetail.detail === 'string') {
+                            errMsg = errDetail.detail;
+                        } else if (Array.isArray(errDetail.detail)) {
+                            errMsg = errDetail.detail.map(err => `${err.loc.join('.')}: ${err.msg}`).join('\n');
+                        } else {
+                            errMsg = JSON.stringify(errDetail.detail);
+                        }
+                    }
+                    throw new Error(errMsg);
                 }
 
                 const taskData = await resp.json();

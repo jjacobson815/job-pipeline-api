@@ -75,7 +75,7 @@ class JobSearchService:
         return {
             "status": "success",
             "queries": queries,
-            "urls": unique_urls[:15],  # Cap at 15 most relevant job postings
+            "urls": unique_urls[:10],  # Cap at 10 to match backend ingest limits
             "fallback": is_fallback,
             "fallback_source": fallback_source
         }
