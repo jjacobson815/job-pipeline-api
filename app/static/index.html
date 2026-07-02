@@ -689,32 +689,40 @@
                 const company = succeeded[idx] ? succeeded[idx].company : 'Unknown Company';
                 const url = succeeded[idx] ? succeeded[idx].source_url : '#';
                 
+                const isError = !!analysis.error_type;
+                const errorHtml = isError ? `
+                    <div class="mt-2 bg-red-500/10 border border-red-500/20 rounded-lg p-2.5 text-xxs text-red-400 font-mono leading-relaxed">
+                        ⚠️ Analysis Failed (${analysis.error_type}): ${analysis.detail}
+                    </div>
+                ` : '';
+
                 const fitScoreObj = analysis.fit_score || {};
                 const score = fitScoreObj.overall_score || 0;
                 
-                if (score > 0) {
+                if (!isError && score > 0) {
                     totalScore += score;
                     countScores++;
                 }
                 
-                const scoreColor = score >= 75 ? 'text-neon-green border-neon-green/30' : score >= 50 ? 'text-neon-cyan border-neon-cyan/30' : 'text-neon-pink border-neon-pink/30';
-                const borderNeon = score >= 75 ? 'neon-border-green' : score >= 50 ? 'neon-border-cyan' : 'neon-border-pink';
+                const scoreColor = isError ? 'text-slate-500 border-slate-700' : score >= 75 ? 'text-neon-green border-neon-green/30' : score >= 50 ? 'text-neon-cyan border-neon-cyan/30' : 'text-neon-pink border-neon-pink/30';
+                const borderNeon = isError ? 'border-red-500/20' : score >= 75 ? 'neon-border-green' : score >= 50 ? 'neon-border-cyan' : 'neon-border-pink';
                 
                 // Parse keywords lists
                 const overlap = fitScoreObj.keyword_overlap || [];
                 const missing = fitScoreObj.missing_keywords || [];
                 const strengths = fitScoreObj.strengths || [];
                 const gaps = fitScoreObj.gaps || [];
-                const recommendation = fitScoreObj.recommendation || 'No recommendation provided.';
+                const recommendation = fitScoreObj.recommendation || (isError ? 'No recommendation available due to LLM error.' : 'No recommendation provided.');
 
                 resultsList.innerHTML += `
                     <div class="glass-card p-6 rounded-2xl ${borderNeon} space-y-6">
                         <!-- Top Details Header -->
                         <div class="flex justify-between items-start">
-                            <div class="space-y-1 pr-4">
+                            <div class="space-y-1 pr-4 flex-1">
                                 <h4 class="text-lg font-bold text-white font-outfit tracking-wide">${jobTitle}</h4>
                                 <p class="text-sm text-neon-cyan font-semibold">${company}</p>
                                 <a href="${url}" target="_blank" class="text-xs text-slate-400 hover:text-neon-cyan transition truncate block max-w-lg">URL: ${url}</a>
+                                ${errorHtml}
                             </div>
                             
                             <!-- Circular Gauge Display -->

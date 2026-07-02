@@ -161,7 +161,19 @@ class LLMAnalysisService:
     async def analyse_batch(
         self, requests: list[AnalysisRequest], concurrency: int = 5
     ) -> list[AnalysisResponse | AnalysisError]:
-        """Run multiple analyses concurrently with bounded parallelism."""
+        """Run multiple analyses with bounded parallelism (or sequentially with a delay for Gemini)."""
+        use_gemini = self._settings.is_gemini_configured
+
+        if use_gemini:
+            results = []
+            logger.info("Using Gemini (Free Tier). Processing %d analysis requests sequentially with a 4.2s delay to prevent 429 rate limits.", len(requests))
+            for i, req in enumerate(requests):
+                if i > 0:
+                    await asyncio.sleep(4.2)
+                res = await self.analyse(req)
+                results.append(res)
+            return results
+
         semaphore = asyncio.Semaphore(concurrency)
 
         async def _bounded(req: AnalysisRequest) -> AnalysisResponse | AnalysisError:
