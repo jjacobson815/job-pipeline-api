@@ -132,7 +132,7 @@
             
             <div class="pt-6 border-t border-white/5 flex-1 flex flex-col justify-end space-y-4">
                 <div class="glass-card p-4 rounded-xl space-y-2">
-                    <label class="block text-xxs font-bold uppercase tracking-wider text-slate-500 font-outfit">API Security Key</label>
+                    <label class="block text-xxs font-bold uppercase tracking-wider text-slate-500 font-outfit">Local Access Key</label>
                     <div class="relative flex items-center">
                         <input type="password" id="input-api-key" class="w-full bg-space-black border border-white/10 rounded-lg pl-3 pr-10 py-1.5 text-xs text-slate-300 font-mono focus:outline-none focus:border-neon-cyan transition" placeholder="Enter key..." value="personal-secret-key-123" onchange="saveApiKey()" />
                         <button onclick="toggleKeyVisibility()" class="absolute right-3 text-slate-500 hover:text-slate-300 focus:outline-none">
@@ -142,6 +142,7 @@
                             </svg>
                         </button>
                     </div>
+                    <p class="text-xxs text-slate-500 leading-relaxed">Matches the `API_KEY` set in your `.env` file (Default: `personal-secret-key-123`). This is **not** your Google Gemini key.</p>
                 </div>
                 <div class="glass-card p-4 rounded-xl space-y-3">
                     <p class="text-xs font-bold text-neon-cyan font-outfit">Need Deep Diagnostics?</p>
