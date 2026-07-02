@@ -44,9 +44,9 @@ services:
       --loglevel=info
       --concurrency=4
       --queues=pipeline
-      --without-heartbeat
-      --without-mingle
+      -E
     env_file:
+
       - .env
     environment:
       - REDIS_URL=redis://redis:6379/0
