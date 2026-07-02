@@ -179,19 +179,50 @@ class JobSearchService:
             elif href.startswith('http'):
                 links.append(href)
                 
-        # Filter for actual job postings and discard duckduckgo search internal pages
+        # Filter for actual job postings and discard generic search/list pages
         filtered_links = []
         for l in links:
-            if 'duckduckgo.com' in l:
+            l_lower = l.lower()
+            if 'duckduckgo.com' in l_lower:
                 continue
-            # Keep links matching job posting structures or board portals
-            if any(domain in l.lower() for domain in [
-                'dice.com/job-detail', 'remoterocketship.com', 'turing.com/jobs', 
-                'linkedin.com/jobs', 'weworkremotely.com', 'simplyhired.com/job', 
-                'ziprecruiter.com/jobs', 'reactjobs.io', 'glassdoor.com/job', 
-                'workingnomads.com', 'flexjobs.com', 'arbeitnow.com', 'indeed.com/viewjob'
-            ]):
+                
+            # Restrict to individual job details endpoints
+            is_job_post = False
+            
+            # Dice individual job detail
+            if 'dice.com/job-detail/' in l_lower:
+                is_job_post = True
+            # RemoteRocketShip individual job detail
+            elif 'remoterocketship.com/company/' in l_lower and '/jobs/' in l_lower:
+                is_job_post = True
+            # Turing individual job detail
+            elif 'turing.com/jobs/' in l_lower and not l_lower.endswith('/jobs/') and not 'search' in l_lower:
+                is_job_post = True
+            # LinkedIn individual job detail
+            elif 'linkedin.com/jobs/view/' in l_lower:
+                is_job_post = True
+            # WeWorkRemotely individual job detail
+            elif 'weworkremotely.com/remote-jobs/' in l_lower and '/jobs/' in l_lower:
+                is_job_post = True
+            # SimplyHired individual job detail (must have singular /job/ followed by id)
+            elif 'simplyhired.com/job/' in l_lower:
+                is_job_post = True
+            # ZipRecruiter individual job detail (must have singular /job/)
+            elif 'ziprecruiter.com/job/' in l_lower:
+                is_job_post = True
+            # Indeed individual job detail
+            elif 'indeed.com/viewjob' in l_lower or 'indeed.com/rc/clk' in l_lower:
+                is_job_post = True
+            # WorkingNomads individual job detail
+            elif 'workingnomads.com/jobs/' in l_lower and not l_lower.endswith('/jobs'):
+                is_job_post = True
+            # ArbeitNow individual job detail
+            elif 'arbeitnow.com/jobs/' in l_lower and not l_lower.endswith('/jobs'):
+                is_job_post = True
+                
+            if is_job_post:
                 filtered_links.append(l)
 
         return list(dict.fromkeys(filtered_links))
+
 
