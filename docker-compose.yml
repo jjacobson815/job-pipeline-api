@@ -27,7 +27,7 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_URL=redis://:redis-secure-password-789@redis:6379/0
+      - REDIS_URL=${REDIS_URL:-redis://:redis-secure-password-789@redis:6379/0}
     depends_on:
       redis:
         condition: service_healthy
@@ -47,7 +47,7 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_URL=redis://:redis-secure-password-789@redis:6379/0
+      - REDIS_URL=${REDIS_URL:-redis://:redis-secure-password-789@redis:6379/0}
     depends_on:
       redis:
         condition: service_healthy
@@ -64,7 +64,7 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_URL=redis://:redis-secure-password-789@redis:6379/0
+      - REDIS_URL=${REDIS_URL:-redis://:redis-secure-password-789@redis:6379/0}
     depends_on:
       redis:
         condition: service_healthy
@@ -83,7 +83,7 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_URL=redis://:redis-secure-password-789@redis:6379/0
+      - REDIS_URL=${REDIS_URL:-redis://:redis-secure-password-789@redis:6379/0}
     depends_on:
       redis:
         condition: service_healthy
