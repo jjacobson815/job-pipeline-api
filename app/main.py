@@ -1,23 +1,28 @@
 """
 FastAPI application entry point.
 
-Headless API — no HTML templates, no static files.  Exposes REST
-endpoints for triggering pipeline stages and checking task status.
+Serves the Web GUI dashboard and exposes REST endpoints for triggering
+pipeline stages and checking task status, all protected by API Key authentication.
 Lifespan hook validates configuration at startup.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, Field
+from fastapi import FastAPI, HTTPException, status, APIRouter, Depends, Header
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field, HttpUrl
 
 from app.core.config import get_settings
 from app.domains.job_ingestion.models import JobBoardSource
 from app.tasks.pipeline_tasks import analyse_job, full_pipeline, ingest_jobs, sync_to_teal
+from app.core.celery_app import celery_app
+
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +46,61 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 # ---------------------------------------------------------------------------
+# Request / Response schemas
+# ---------------------------------------------------------------------------
+
+class IngestRequest(BaseModel):
+    urls: list[HttpUrl] = Field(
+        min_length=1, 
+        max_length=10, 
+        description="Job-board URLs to scrape (max 10)."
+    )
+    source: JobBoardSource = JobBoardSource.CUSTOM
+
+class AnalyseRequest(BaseModel):
+    job_description: str = Field(min_length=1)
+    resume_text: str = Field(min_length=1)
+    kind: str = Field(default="fit_score")
+    model: str = Field(default="gpt-4o-mini")
+
+class SyncRequest(BaseModel):
+    jobs: list[dict] = Field(min_length=1)
+    dry_run: bool = False
+
+class PipelineRequest(BaseModel):
+    urls: list[HttpUrl] = Field(
+        min_length=1, 
+        max_length=10, 
+        description="Job URLs to process (max 10)."
+    )
+    resume_text: str = Field(min_length=1)
+    source: str = Field(default="custom")
+    analysis_kind: str = Field(default="fit_score")
+    sync_to_teal: bool = True
+
+class TaskResponse(BaseModel):
+    task_id: str
+    status: str = "queued"
+
+class DiscoverRequest(BaseModel):
+    resume_text: str = Field(min_length=1)
+
+
+# ---------------------------------------------------------------------------
+# API Key Verification Dependency
+# ---------------------------------------------------------------------------
+
+async def verify_api_key(x_api_key: str | None = Header(None, alias="X-API-Key")) -> None:
+    """Verifies that the X-API-Key header matches the configured settings API Key."""
+    settings = get_settings()
+    if x_api_key != settings.api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API Key"
+        )
+
+
+# ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
 
@@ -59,48 +119,23 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "healthy", "version": settings.app_version}
 
-    # --- Request / Response schemas ----------------------------------------
+    # --- APIRouter (Authenticated) ----------------------------------------
 
-    class IngestRequest(BaseModel):
-        urls: list[str] = Field(min_length=1, description="Job-board URLs to scrape")
-        source: JobBoardSource = JobBoardSource.CUSTOM
+    api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(verify_api_key)])
 
-    class AnalyseRequest(BaseModel):
-        job_description: str = Field(min_length=1)
-        resume_text: str = Field(min_length=1)
-        kind: str = Field(default="fit_score")
-        model: str = Field(default="gpt-4o-mini")
-
-    class SyncRequest(BaseModel):
-        jobs: list[dict] = Field(min_length=1)
-        dry_run: bool = False
-
-    class PipelineRequest(BaseModel):
-        urls: list[str] = Field(min_length=1)
-        resume_text: str = Field(min_length=1)
-        source: str = Field(default="custom")
-        analysis_kind: str = Field(default="fit_score")
-        sync_to_teal: bool = True
-
-    class TaskResponse(BaseModel):
-        task_id: str
-        status: str = "queued"
-
-    # --- Endpoints ---------------------------------------------------------
-
-    @app.post(
-        "/api/v1/ingest",
+    @api_router.post(
+        "/ingest",
         response_model=TaskResponse,
         status_code=status.HTTP_202_ACCEPTED,
         tags=["pipeline"],
     )
     async def trigger_ingest(body: IngestRequest) -> TaskResponse:
         """Queue a job-ingestion task."""
-        task = ingest_jobs.delay(body.urls, body.source.value)
+        task = ingest_jobs.delay([str(u) for u in body.urls], body.source.value)
         return TaskResponse(task_id=task.id)
 
-    @app.post(
-        "/api/v1/analyse",
+    @api_router.post(
+        "/analyse",
         response_model=TaskResponse,
         status_code=status.HTTP_202_ACCEPTED,
         tags=["pipeline"],
@@ -112,8 +147,8 @@ def create_app() -> FastAPI:
         )
         return TaskResponse(task_id=task.id)
 
-    @app.post(
-        "/api/v1/sync",
+    @api_router.post(
+        "/sync",
         response_model=TaskResponse,
         status_code=status.HTTP_202_ACCEPTED,
         tags=["pipeline"],
@@ -123,8 +158,8 @@ def create_app() -> FastAPI:
         task = sync_to_teal.delay(body.jobs, body.dry_run)
         return TaskResponse(task_id=task.id)
 
-    @app.post(
-        "/api/v1/pipeline",
+    @api_router.post(
+        "/pipeline",
         response_model=TaskResponse,
         status_code=status.HTTP_202_ACCEPTED,
         tags=["pipeline"],
@@ -132,7 +167,7 @@ def create_app() -> FastAPI:
     async def trigger_full_pipeline(body: PipelineRequest) -> TaskResponse:
         """Queue the full ingest → analyse → sync pipeline."""
         task = full_pipeline.delay(
-            body.urls,
+            [str(u) for u in body.urls],
             body.resume_text,
             body.source,
             body.analysis_kind,
@@ -140,14 +175,23 @@ def create_app() -> FastAPI:
         )
         return TaskResponse(task_id=task.id)
 
-    @app.get(
-        "/api/v1/tasks/{task_id}",
+    @api_router.post(
+        "/jobs/discover",
+        tags=["pipeline"]
+    )
+    async def discover_jobs(body: DiscoverRequest) -> dict:
+        """Discover relevant job URLs based on resume details."""
+        from app.domains.job_search.services import JobSearchService
+        service = JobSearchService()
+        return await service.discover_jobs(body.resume_text)
+
+    @api_router.get(
+        "/tasks/{task_id}",
         tags=["pipeline"],
     )
     async def get_task_status(task_id: str) -> dict:
         """Check the status of any queued Celery task."""
         from celery.result import AsyncResult
-
         from app.core.celery_app import celery_app as celery
 
         result = AsyncResult(task_id, app=celery)
@@ -166,6 +210,73 @@ def create_app() -> FastAPI:
                 "result": result.result,
             }
         return {"task_id": task_id, "status": result.state.lower(), "result": None}
+
+    @api_router.get("/workers/status", tags=["ops"])
+    async def get_workers_status() -> dict:
+        """Query Celery active workers and status."""
+        try:
+            inspect = celery_app.control.inspect()
+            inspect.timeout = 2.0
+            
+            ping = inspect.ping() or {}
+            active = inspect.active() or {}
+            reserved = inspect.reserved() or {}
+            
+            workers = []
+            for name in ping.keys():
+                workers.append({
+                    "name": name,
+                    "status": "online",
+                    "active_tasks_count": len(active.get(name, [])),
+                    "reserved_tasks_count": len(reserved.get(name, []))
+                })
+            
+            return {
+                "status": "ok",
+                "workers": workers,
+                "total_workers_count": len(workers),
+                "active_tasks_total": sum(len(tasks) for tasks in active.values())
+            }
+        except Exception as e:
+            logger.exception("Failed to query Celery workers status: %s", e)
+            return {
+                "status": "error",
+                "detail": str(e),
+                "workers": [],
+                "total_workers_count": 0,
+                "active_tasks_total": 0
+            }
+
+    @api_router.get("/profile/resume", tags=["profile"])
+    async def get_resume() -> dict[str, str]:
+        """Read and return default resume contents securely."""
+        path = os.path.join(os.path.dirname(__file__), "data", "resume.txt")
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="Resume template not found")
+        with open(path, "r", encoding="utf-8") as f:
+            return {"resume_text": f.read()}
+
+    @api_router.get("/profile/jobs", tags=["profile"])
+    async def get_jobs() -> dict[str, str]:
+        """Read and return default jobs contents securely."""
+        path = os.path.join(os.path.dirname(__file__), "data", "jobs.txt")
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="Jobs template not found")
+        with open(path, "r", encoding="utf-8") as f:
+            return {"jobs_text": f.read()}
+
+    # Include protected router
+    app.include_router(api_router)
+
+    # --- Static Dashboard Mount --------------------------------------------
+
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    os.makedirs(static_dir, exist_ok=True)
+    app.mount("/dashboard", StaticFiles(directory=static_dir, html=True), name="static")
+
+    @app.get("/")
+    async def redirect_to_dashboard():
+        return RedirectResponse(url="/dashboard/")
 
     return app
 

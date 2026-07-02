@@ -18,6 +18,8 @@ httpx>=0.28.0,<1.0
 # --- Task queue ---
 celery[redis]>=5.4.0,<6.0
 redis>=5.2.0,<6.0
+flower>=2.0.0,<3.0
+
 
 # --- Testing ---
 pytest>=8.3.0,<9.0

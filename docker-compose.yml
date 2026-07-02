@@ -7,12 +7,11 @@ services:
   # --- Redis broker -------------------------------------------------------
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    command: redis-server --requirepass redis-secure-password-789
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "redis-secure-password-789", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -28,7 +27,7 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:redis-secure-password-789@redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
@@ -44,12 +43,11 @@ services:
       --loglevel=info
       --concurrency=4
       --queues=pipeline
-      --without-heartbeat
-      --without-mingle
+      -E
     env_file:
       - .env
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:redis-secure-password-789@redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
@@ -66,10 +64,31 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:redis-secure-password-789@redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
+    restart: unless-stopped
+
+  # --- Celery Flower (worker monitoring UI) --------------------------------
+  celery-flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      celery -A app.core.celery_app:celery_app flower
+      --port=5555
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=redis://:redis-secure-password-789@redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
+      celery-worker:
+        condition: service_started
     restart: unless-stopped
 
 volumes:

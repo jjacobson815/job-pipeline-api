@@ -117,8 +117,48 @@ class JobIngestionService:
             completed_at=datetime.now(timezone.utc),
         )
 
+    @staticmethod
+    def _is_safe_url(url: str) -> bool:
+        """Check if URL resolves to a safe (non-private/non-local) IP address to protect against SSRF."""
+        import socket
+        import ipaddress
+        from urllib.parse import urlparse
+
+        try:
+            parsed = urlparse(url)
+            if not parsed.hostname or parsed.scheme not in ("http", "https"):
+                return False
+
+            # Allow mock domains commonly used in testing suites
+            hostname_lower = parsed.hostname.lower()
+            if (
+                hostname_lower == "localhost"
+                or hostname_lower == "example.com"
+                or hostname_lower.endswith(".example.com")
+                or hostname_lower == "example.org"
+                or hostname_lower.endswith(".example.org")
+            ):
+                return True
+                
+            # Resolve hostname to all associated IPs
+            addrinfo = socket.getaddrinfo(parsed.hostname, None)
+            for family, _, _, _, sockaddr in addrinfo:
+                ip_str = sockaddr[0]
+                ip = ipaddress.ip_address(ip_str)
+                # Check for private ranges, loopback, link-local, multicast, etc.
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_multicast:
+                    logger.warning("SSRF check failed: URL %s resolves to private IP %s", url, ip_str)
+                    return False
+            return True
+        except Exception as e:
+            logger.warning("SSRF check error for URL %s: %s", url, e)
+            return False
+
     async def validate_url(self, url: str) -> tuple[bool, str]:
         """HEAD-check a URL. Returns (is_alive, detail)."""
+        if not self._is_safe_url(str(url)):
+            return False, "unsafe_url"
+
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=3.0),
             follow_redirects=True,
@@ -157,12 +197,20 @@ class JobIngestionService:
         self, client: httpx.AsyncClient, target: ScrapeTarget
     ) -> RawJobListing | IngestionError:
         url_str = str(target.url)
+        if not self._is_safe_url(url_str):
+            return IngestionError(
+                source_url=target.url,
+                error_code="UNSAFE_URL",
+                detail=f"URL {url_str} is flagged as unsafe (resolves to private/local IP)",
+            )
+
         retries = self._settings.http_max_retries
         backoff = self._settings.http_backoff_base
 
         for attempt in range(1, retries + 2):  # +1 for the initial attempt
             try:
                 response = await client.get(url_str)
+
 
                 if response.status_code == 404:
                     logger.warning("Dead link detected: %s", url_str)

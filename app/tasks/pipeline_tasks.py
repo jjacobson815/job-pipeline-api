@@ -191,15 +191,37 @@ def full_pipeline(
         Combined results from all three stages.
     """
     # Stage 1: Ingest
-    ingestion_result = ingest_jobs.apply(args=[urls, source]).get()
+    board = JobBoardSource(source)
+    targets = [ScrapeTarget(url=u, source=board) for u in urls]
+    ingestion_service = JobIngestionService()
+    
+    try:
+        ingestion_result_obj = _run_async(ingestion_service.ingest_batch(targets))
+        ingestion_result = ingestion_result_obj.model_dump(mode="json")
+    except Exception as exc:
+        logger.exception("Ingestion step failed inside full_pipeline: %s", exc)
+        raise self.retry(exc=exc)
 
-    # Stage 2: Analyse each successfully ingested job
+    # Stage 2: Analyse each successfully ingested job concurrently
     analysis_results: list[dict] = []
-    for job in ingestion_result.get("succeeded", []):
-        analysis = analyse_job.apply(
-            args=[job["description"], resume_text, analysis_kind]
-        ).get()
-        analysis_results.append(analysis)
+    analysis_service = LLMAnalysisService()
+    succeeded_jobs = ingestion_result.get("succeeded", [])
+    if succeeded_jobs:
+        requests = [
+            AnalysisRequest(
+                kind=AnalysisKind(analysis_kind),
+                job_description=job["description"],
+                resume_text=resume_text,
+            )
+            for job in succeeded_jobs
+        ]
+        try:
+            batch_results = _run_async(analysis_service.analyse_batch(requests))
+            for res in batch_results:
+                analysis_results.append(res.model_dump(mode="json"))
+        except Exception as exc:
+            logger.exception("Analysis step failed inside full_pipeline: %s", exc)
+            raise self.retry(exc=exc)
 
     # Stage 3: Sync to Teal
     teal_result: dict | None = None
@@ -215,7 +237,15 @@ def full_pipeline(
             }
             for job in ingestion_result["succeeded"]
         ]
-        teal_result = sync_to_teal.apply(args=[teal_payloads]).get()
+        payloads = [TealJobPayload(**jd) for jd in teal_payloads]
+        sync_request = TealSyncRequest(jobs=payloads, dry_run=False)
+        sync_service = TealSyncService()
+        try:
+            sync_result_obj = _run_async(sync_service.sync_batch(sync_request))
+            teal_result = sync_result_obj.model_dump(mode="json")
+        except Exception as exc:
+            logger.exception("Sync step failed inside full_pipeline: %s", exc)
+            raise self.retry(exc=exc)
 
     return {
         "ingestion": ingestion_result,
