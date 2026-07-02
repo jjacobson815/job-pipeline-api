@@ -130,7 +130,11 @@
                 </nav>
             </div>
             
-            <div class="pt-6 border-t border-white/5 flex-1 flex flex-col justify-end">
+            <div class="pt-6 border-t border-white/5 flex-1 flex flex-col justify-end space-y-4">
+                <div class="glass-card p-4 rounded-xl space-y-2">
+                    <label class="block text-xxs font-bold uppercase tracking-wider text-slate-500 font-outfit">API Security Key</label>
+                    <input type="password" id="input-api-key" class="w-full bg-space-black border border-white/10 rounded-lg px-3 py-1.5 text-xs text-slate-300 font-mono focus:outline-none focus:border-neon-cyan transition" placeholder="Enter key..." value="personal-secret-key-123" onchange="saveApiKey()" />
+                </div>
                 <div class="glass-card p-4 rounded-xl space-y-3">
                     <p class="text-xs font-bold text-neon-cyan font-outfit">Need Deep Diagnostics?</p>
                     <p class="text-xxs text-slate-400">Open Celery Flower dashboard directly to view active queues, tasks metrics, and real-time execution graphs.</p>
@@ -318,8 +322,26 @@
 
     <!-- Script Logic -->
     <script>
+        // Key Storage Helpers
+        function getApiKey() {
+            const key = document.getElementById('input-api-key').value.trim();
+            localStorage.setItem('api_key', key);
+            return key;
+        }
+
+        function saveApiKey() {
+            getApiKey();
+            // Reload templates on key change
+            loadResumeTemplate();
+            loadJobsTemplate();
+        }
+
         // Load settings / defaults on startup
         window.addEventListener('DOMContentLoaded', async () => {
+            const savedKey = localStorage.getItem('api_key');
+            if (savedKey) {
+                document.getElementById('input-api-key').value = savedKey;
+            }
             loadResumeTemplate();
             loadJobsTemplate();
             updateWorkersStatus();
@@ -348,21 +370,24 @@
         // Templates Helper
         async function loadResumeTemplate() {
             try {
-                // Fetch default resume.txt if accessible, or leave empty
-                const resp = await fetch('/dashboard/resume.txt');
+                const resp = await fetch('/api/v1/profile/resume', {
+                    headers: { 'X-API-Key': getApiKey() }
+                });
                 if (resp.ok) {
-                    const text = await resp.text();
-                    document.getElementById('input-resume').value = text;
+                    const data = await resp.json();
+                    document.getElementById('input-resume').value = data.resume_text;
                 }
             } catch(e) {}
         }
         
         async function loadJobsTemplate() {
             try {
-                const resp = await fetch('/dashboard/jobs.txt');
+                const resp = await fetch('/api/v1/profile/jobs', {
+                    headers: { 'X-API-Key': getApiKey() }
+                });
                 if (resp.ok) {
-                    const text = await resp.text();
-                    document.getElementById('input-urls').value = text;
+                    const data = await resp.json();
+                    document.getElementById('input-urls').value = data.jobs_text;
                 }
             } catch(e) {}
         }
@@ -370,7 +395,9 @@
         // Query active Celery workers status
         async function updateWorkersStatus() {
             try {
-                const resp = await fetch('/api/v1/workers/status');
+                const resp = await fetch('/api/v1/workers/status', {
+                    headers: { 'X-API-Key': getApiKey() }
+                });
                 if (!resp.ok) throw new Error('API down');
                 const data = await resp.json();
                 
@@ -439,19 +466,28 @@
             try {
                 const resp = await fetch('/api/v1/jobs/discover', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-API-Key': getApiKey()
+                    },
                     body: JSON.stringify({ resume_text: resume })
                 });
 
-                if (!resp.ok) throw new Error('API failed to discover jobs');
+                if (!resp.ok) throw new Error('API failed to discover jobs (check your API security key)');
 
                 const data = await resp.json();
                 
                 if (data.status === 'success' && data.urls.length > 0) {
                     textarea.value = data.urls.join('\n');
-                    statusEl.innerText = `✅ Discovered ${data.urls.length} relevant URLs using queries: "${data.queries.join(', ')}"`;
-                    statusEl.classList.add('text-neon-green');
-                    statusEl.classList.remove('text-slate-400');
+                    if (data.fallback) {
+                        statusEl.innerText = `⚠️ Rate limits hit or search engine blocked. Loaded ${data.urls.length} pre-vetted matching job templates!`;
+                        statusEl.classList.add('text-amber-400');
+                        statusEl.classList.remove('text-slate-400');
+                    } else {
+                        statusEl.innerText = `✅ Discovered ${data.urls.length} relevant URLs using queries: "${data.queries.join(', ')}"`;
+                        statusEl.classList.add('text-neon-green');
+                        statusEl.classList.remove('text-slate-400');
+                    }
                 } else {
                     statusEl.innerText = '⚠️ No active matching job links found on DuckDuckGo. Try broadening search.';
                 }
@@ -493,7 +529,10 @@
             try {
                 const resp = await fetch('/api/v1/pipeline', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-API-Key': getApiKey()
+                    },
                     body: JSON.stringify({
                         urls: urls,
                         resume_text: resume,
@@ -532,7 +571,9 @@
             const interval = setInterval(async () => {
                 attempt++;
                 try {
-                    const resp = await fetch(`/api/v1/tasks/${taskId}`);
+                    const resp = await fetch(`/api/v1/tasks/${taskId}`, {
+                        headers: { 'X-API-Key': getApiKey() }
+                    });
                     if (!resp.ok) return;
                     
                     const data = await resp.json();

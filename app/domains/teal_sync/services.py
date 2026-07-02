@@ -102,9 +102,7 @@ class TealSyncService:
             for job in request.jobs:
                 if (
                     request.dry_run
-                    or not self._settings.teal_api_key
-                    or "your-teal-api-key" in self._settings.teal_api_key
-                    or self._settings.teal_api_key.startswith("mock")
+                    or not self._settings.is_teal_configured
                 ):
                     items.append(
                         TealSyncItemResult(

@@ -1,18 +1,19 @@
 """
 FastAPI application entry point.
 
-Headless API — no HTML templates, no static files.  Exposes REST
-endpoints for triggering pipeline stages and checking task status.
+Serves the Web GUI dashboard and exposes REST endpoints for triggering
+pipeline stages and checking task status, all protected by API Key authentication.
 Lifespan hook validates configuration at startup.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, status, APIRouter, Depends, Header
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
@@ -49,7 +50,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 # ---------------------------------------------------------------------------
 
 class IngestRequest(BaseModel):
-    urls: list[HttpUrl] = Field(min_length=1, description="Job-board URLs to scrape")
+    urls: list[HttpUrl] = Field(
+        min_length=1, 
+        max_length=10, 
+        description="Job-board URLs to scrape (max 10)."
+    )
     source: JobBoardSource = JobBoardSource.CUSTOM
 
 class AnalyseRequest(BaseModel):
@@ -63,12 +68,15 @@ class SyncRequest(BaseModel):
     dry_run: bool = False
 
 class PipelineRequest(BaseModel):
-    urls: list[HttpUrl] = Field(min_length=1)
+    urls: list[HttpUrl] = Field(
+        min_length=1, 
+        max_length=10, 
+        description="Job URLs to process (max 10)."
+    )
     resume_text: str = Field(min_length=1)
     source: str = Field(default="custom")
     analysis_kind: str = Field(default="fit_score")
     sync_to_teal: bool = True
-
 
 class TaskResponse(BaseModel):
     task_id: str
@@ -77,6 +85,19 @@ class TaskResponse(BaseModel):
 class DiscoverRequest(BaseModel):
     resume_text: str = Field(min_length=1)
 
+
+# ---------------------------------------------------------------------------
+# API Key Verification Dependency
+# ---------------------------------------------------------------------------
+
+async def verify_api_key(x_api_key: str | None = Header(None, alias="X-API-Key")) -> None:
+    """Verifies that the X-API-Key header matches the configured settings API Key."""
+    settings = get_settings()
+    if x_api_key != settings.api_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API Key"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -98,11 +119,12 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "healthy", "version": settings.app_version}
 
+    # --- APIRouter (Authenticated) ----------------------------------------
 
-    # --- Endpoints ---------------------------------------------------------
+    api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(verify_api_key)])
 
-    @app.post(
-        "/api/v1/ingest",
+    @api_router.post(
+        "/ingest",
         response_model=TaskResponse,
         status_code=status.HTTP_202_ACCEPTED,
         tags=["pipeline"],
@@ -112,8 +134,8 @@ def create_app() -> FastAPI:
         task = ingest_jobs.delay([str(u) for u in body.urls], body.source.value)
         return TaskResponse(task_id=task.id)
 
-    @app.post(
-        "/api/v1/analyse",
+    @api_router.post(
+        "/analyse",
         response_model=TaskResponse,
         status_code=status.HTTP_202_ACCEPTED,
         tags=["pipeline"],
@@ -125,8 +147,8 @@ def create_app() -> FastAPI:
         )
         return TaskResponse(task_id=task.id)
 
-    @app.post(
-        "/api/v1/sync",
+    @api_router.post(
+        "/sync",
         response_model=TaskResponse,
         status_code=status.HTTP_202_ACCEPTED,
         tags=["pipeline"],
@@ -136,8 +158,8 @@ def create_app() -> FastAPI:
         task = sync_to_teal.delay(body.jobs, body.dry_run)
         return TaskResponse(task_id=task.id)
 
-    @app.post(
-        "/api/v1/pipeline",
+    @api_router.post(
+        "/pipeline",
         response_model=TaskResponse,
         status_code=status.HTTP_202_ACCEPTED,
         tags=["pipeline"],
@@ -153,8 +175,8 @@ def create_app() -> FastAPI:
         )
         return TaskResponse(task_id=task.id)
 
-    @app.post(
-        "/api/v1/jobs/discover",
+    @api_router.post(
+        "/jobs/discover",
         tags=["pipeline"]
     )
     async def discover_jobs(body: DiscoverRequest) -> dict:
@@ -163,16 +185,13 @@ def create_app() -> FastAPI:
         service = JobSearchService()
         return await service.discover_jobs(body.resume_text)
 
-
-
-    @app.get(
-        "/api/v1/tasks/{task_id}",
+    @api_router.get(
+        "/tasks/{task_id}",
         tags=["pipeline"],
     )
     async def get_task_status(task_id: str) -> dict:
         """Check the status of any queued Celery task."""
         from celery.result import AsyncResult
-
         from app.core.celery_app import celery_app as celery
 
         result = AsyncResult(task_id, app=celery)
@@ -192,9 +211,7 @@ def create_app() -> FastAPI:
             }
         return {"task_id": task_id, "status": result.state.lower(), "result": None}
 
-    # --- Workers status ----------------------------------------------------
-
-    @app.get("/api/v1/workers/status", tags=["ops"])
+    @api_router.get("/workers/status", tags=["ops"])
     async def get_workers_status() -> dict:
         """Query Celery active workers and status."""
         try:
@@ -230,9 +247,29 @@ def create_app() -> FastAPI:
                 "active_tasks_total": 0
             }
 
+    @api_router.get("/profile/resume", tags=["profile"])
+    async def get_resume() -> dict[str, str]:
+        """Read and return default resume contents securely."""
+        path = os.path.join(os.path.dirname(__file__), "data", "resume.txt")
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="Resume template not found")
+        with open(path, "r", encoding="utf-8") as f:
+            return {"resume_text": f.read()}
+
+    @api_router.get("/profile/jobs", tags=["profile"])
+    async def get_jobs() -> dict[str, str]:
+        """Read and return default jobs contents securely."""
+        path = os.path.join(os.path.dirname(__file__), "data", "jobs.txt")
+        if not os.path.exists(path):
+            raise HTTPException(status_code=404, detail="Jobs template not found")
+        with open(path, "r", encoding="utf-8") as f:
+            return {"jobs_text": f.read()}
+
+    # Include protected router
+    app.include_router(api_router)
+
     # --- Static Dashboard Mount --------------------------------------------
 
-    import os
     static_dir = os.path.join(os.path.dirname(__file__), "static")
     os.makedirs(static_dir, exist_ok=True)
     app.mount("/dashboard", StaticFiles(directory=static_dir, html=True), name="static")
@@ -242,7 +279,6 @@ def create_app() -> FastAPI:
         return RedirectResponse(url="/dashboard/")
 
     return app
-
 
 
 app = create_app()

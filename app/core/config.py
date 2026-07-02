@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
 
     # --- API Keys ---
+    api_key: str = Field(
+        default="personal-secret-key-123",
+        min_length=8,
+        description="Shared secret API key to authenticate requests via X-API-Key header.",
+    )
     teal_api_key: str = Field(
         default="your-teal-api-key-here",
         min_length=10,
@@ -86,6 +91,24 @@ class Settings(BaseSettings):
     def redis_url_str(self) -> str:
         """Return the Redis DSN as a plain string for libraries that refuse AnyUrl."""
         return str(self.redis_url)
+
+    @property
+    def is_openai_configured(self) -> bool:
+        """Check if a real OpenAI API key is provided."""
+        key = self.openai_api_key
+        return bool(key and "your-openai" not in key and not key.startswith("mock"))
+
+    @property
+    def is_gemini_configured(self) -> bool:
+        """Check if a real Gemini API key is provided."""
+        key = self.gemini_api_key
+        return bool(key and "your-gemini" not in key and not key.startswith("mock"))
+
+    @property
+    def is_teal_configured(self) -> bool:
+        """Check if a real Teal API key is provided."""
+        key = self.teal_api_key
+        return bool(key and "your-teal" not in key and not key.startswith("mock"))
 
 
 @lru_cache(maxsize=1)

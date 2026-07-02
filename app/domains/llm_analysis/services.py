@@ -73,18 +73,11 @@ class LLMAnalysisService:
     async def analyse(self, request: AnalysisRequest) -> AnalysisResponse | AnalysisError:
         """Run a single analysis request against OpenAI or Gemini."""
         # Determine if we should use Gemini
-        use_gemini = bool(
-            self._settings.gemini_api_key
-            and "your-gemini" not in self._settings.gemini_api_key
-            and not self._settings.gemini_api_key.startswith("mock")
-        )
+        use_gemini = self._settings.is_gemini_configured
+        use_openai = self._settings.is_openai_configured
 
         # Check if using placeholder or missing keys to use mock fallback
-        if not use_gemini and (
-            not self._settings.openai_api_key
-            or "your-openai-key" in self._settings.openai_api_key
-            or self._settings.openai_api_key.startswith("mock")
-        ):
+        if not use_gemini and not use_openai:
             logger.info("Using mock LLM analysis (no valid OpenAI or Gemini API key provided)")
             latency_ms = 50.0
             usage = {"prompt_tokens": 120, "completion_tokens": 80}
@@ -140,6 +133,9 @@ class LLMAnalysisService:
                 {"role": "user", "content": user_content},
             ],
         }
+        if request.kind in (AnalysisKind.FIT_SCORE, AnalysisKind.KEYWORD_EXTRACTION):
+            payload["response_format"] = {"type": "json_object"}
+            
         if not use_gemini:
             payload["max_tokens"] = request.max_tokens
 

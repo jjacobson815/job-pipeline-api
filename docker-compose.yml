@@ -7,12 +7,11 @@ services:
   # --- Redis broker -------------------------------------------------------
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    command: redis-server --requirepass redis-secure-password-789
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "redis-secure-password-789", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -28,7 +27,7 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:redis-secure-password-789@redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
@@ -46,10 +45,9 @@ services:
       --queues=pipeline
       -E
     env_file:
-
       - .env
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:redis-secure-password-789@redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
@@ -66,7 +64,7 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:redis-secure-password-789@redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
@@ -85,7 +83,7 @@ services:
     env_file:
       - .env
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:redis-secure-password-789@redis:6379/0
     depends_on:
       redis:
         condition: service_healthy
@@ -95,4 +93,3 @@ services:
 
 volumes:
   redis_data:
-
