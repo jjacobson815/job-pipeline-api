@@ -102,7 +102,7 @@ def create_app() -> FastAPI:
     )
     async def trigger_ingest(body: IngestRequest) -> TaskResponse:
         """Queue a job-ingestion task."""
-        task = ingest_jobs.delay(body.urls, body.source.value)
+        task = ingest_jobs.delay([str(u) for u in body.urls], body.source.value)
         return TaskResponse(task_id=task.id)
 
     @app.post(
@@ -138,13 +138,14 @@ def create_app() -> FastAPI:
     async def trigger_full_pipeline(body: PipelineRequest) -> TaskResponse:
         """Queue the full ingest → analyse → sync pipeline."""
         task = full_pipeline.delay(
-            body.urls,
+            [str(u) for u in body.urls],
             body.resume_text,
             body.source,
             body.analysis_kind,
             body.sync_to_teal,
         )
         return TaskResponse(task_id=task.id)
+
 
     @app.get(
         "/api/v1/tasks/{task_id}",
