@@ -13,7 +13,8 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, HttpUrl
+
 
 from app.core.config import get_settings
 from app.domains.job_ingestion.models import JobBoardSource
@@ -45,7 +46,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 # ---------------------------------------------------------------------------
 
 class IngestRequest(BaseModel):
-    urls: list[str] = Field(min_length=1, description="Job-board URLs to scrape")
+    urls: list[HttpUrl] = Field(min_length=1, description="Job-board URLs to scrape")
     source: JobBoardSource = JobBoardSource.CUSTOM
 
 class AnalyseRequest(BaseModel):
@@ -59,11 +60,12 @@ class SyncRequest(BaseModel):
     dry_run: bool = False
 
 class PipelineRequest(BaseModel):
-    urls: list[str] = Field(min_length=1)
+    urls: list[HttpUrl] = Field(min_length=1)
     resume_text: str = Field(min_length=1)
     source: str = Field(default="custom")
     analysis_kind: str = Field(default="fit_score")
     sync_to_teal: bool = True
+
 
 class TaskResponse(BaseModel):
     task_id: str
