@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Pipeline - AI Matcher Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        outfit: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        space: {
+                            black: '#08080f',
+                            dark: '#0c0c16',
+                            card: 'rgba(20, 20, 35, 0.6)',
+                            border: 'rgba(255, 255, 255, 0.08)',
+                        },
+                        neon: {
+                            green: '#00ff66',
+                            cyan: '#00f0ff',
+                            pink: '#ff0077',
+                            purple: '#a100ff',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #08080f;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(161, 0, 255, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(0, 240, 255, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: #e2e8f0;
+        }
+        .neon-border-green {
+            box-shadow: 0 0 15px rgba(0, 255, 102, 0.15);
+            border: 1px solid rgba(0, 255, 102, 0.25);
+        }
+        .neon-border-cyan {
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+        }
+        .neon-border-pink {
+            box-shadow: 0 0 15px rgba(255, 0, 119, 0.15);
+            border: 1px solid rgba(255, 0, 119, 0.25);
+        }
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+        }
+        .glass-card {
+            background: rgba(18, 18, 32, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #08080f;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 240, 255, 0.3);
+        }
+    </style>
+</head>
+<body class="font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Top Header -->
+    <header class="glass-card border-b space-border py-4 px-6 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-lg bg-gradient-to-tr from-neon-purple to-neon-cyan flex items-center justify-center font-outfit font-extrabold text-xl text-black shadow-lg shadow-neon-purple/20">
+                JP
+            </div>
+            <div>
+                <h1 class="text-xl font-bold font-outfit tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-200 to-neon-cyan">
+                    JOB MATCH PIPELINE
+                </h1>
+                <p class="text-xs text-slate-400">AI-Powered Career Alignment Engine</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                <span class="w-2 h-2 mr-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                FastAPI Services Online
+            </span>
+            <div class="w-px h-6 bg-white/10"></div>
+            <span class="text-xs text-slate-400 font-mono">v0.1.0</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="flex-1 flex overflow-hidden">
+        
+        <!-- Sidebar Navigation -->
+        <aside class="w-64 glass-card border-r space-border p-6 flex flex-col space-y-6 shrink-0">
+            <div class="space-y-1">
+                <p class="text-xxs uppercase tracking-wider text-slate-500 font-bold font-outfit">NAVIGATION</p>
+                <nav class="space-y-2">
+                    <button onclick="switchTab('dashboard')" id="btn-dashboard" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 bg-gradient-to-r from-neon-cyan/15 to-transparent text-neon-cyan border-l-2 border-neon-cyan shadow-sm shadow-neon-cyan/5">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z"/></svg>
+                        <span>Dashboard</span>
+                    </button>
+                    <button onclick="switchTab('new-run')" id="btn-new-run" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-slate-200 hover:bg-white/5 border-l-2 border-transparent">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>Launch Pipeline</span>
+                    </button>
+                    <button onclick="switchTab('workers')" id="btn-workers" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-slate-200 hover:bg-white/5 border-l-2 border-transparent">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                        <span>Celery Workers</span>
+                    </button>
+                </nav>
+            </div>
+            
+            <div class="pt-6 border-t border-white/5 flex-1 flex flex-col justify-end">
+                <div class="glass-card p-4 rounded-xl space-y-3">
+                    <p class="text-xs font-bold text-neon-cyan font-outfit">Need Deep Diagnostics?</p>
+                    <p class="text-xxs text-slate-400">Open Celery Flower dashboard directly to view active queues, tasks metrics, and real-time execution graphs.</p>
+                    <a href="http://localhost:5555" target="_blank" class="block w-full text-center py-2 px-3 bg-neon-cyan text-black hover:bg-neon-cyan/85 rounded-lg text-xs font-semibold transition-all">
+                        Launch Flower ↗
+                    </a>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Panel Content -->
+        <main class="flex-1 p-8 overflow-y-auto">
+            
+            <!-- SECTION 1: DASHBOARD TAB -->
+            <div id="tab-dashboard" class="space-y-8">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-2xl font-bold font-outfit tracking-wide text-white">Results Analysis</h2>
+                        <p class="text-sm text-slate-400">Visual breakdown of resume evaluations against ingested job targets.</p>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="glass-card p-6 rounded-2xl flex items-center justify-between border-l-4 border-neon-cyan">
+                        <div>
+                            <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold font-outfit">Average Match Score</p>
+                            <h3 id="stat-avg-score" class="text-3xl font-bold font-outfit text-white mt-1">0.0%</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-neon-cyan/10 flex items-center justify-center text-neon-cyan">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2"/></svg>
+                        </div>
+                    </div>
+                    <div class="glass-card p-6 rounded-2xl flex items-center justify-between border-l-4 border-neon-green">
+                        <div>
+                            <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold font-outfit">Ingested Postings</p>
+                            <h3 id="stat-total-jobs" class="text-3xl font-bold font-outfit text-white mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-neon-green/10 flex items-center justify-center text-neon-green">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 4a2 2 0 00-2-2m2 2a2 2 0 00-2 2m2 5a2 2 0 01-2 2H5M9 7h1m-1 4h1m-1 4h1"/></svg>
+                        </div>
+                    </div>
+                    <div class="glass-card p-6 rounded-2xl flex items-center justify-between border-l-4 border-neon-purple">
+                        <div>
+                            <p class="text-xs uppercase tracking-wider text-slate-500 font-semibold font-outfit">Active Workers</p>
+                            <h3 id="stat-active-workers" class="text-3xl font-bold font-outfit text-white mt-1">0</h3>
+                        </div>
+                        <div class="w-12 h-12 rounded-xl bg-neon-purple/10 flex items-center justify-center text-neon-purple">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Match Results Feed -->
+                <div class="space-y-6">
+                    <h3 class="text-lg font-bold font-outfit tracking-wide text-white">Active Evaluations</h3>
+                    <div id="results-list" class="space-y-6">
+                        <!-- Placeholder empty state -->
+                        <div class="glass-card p-8 rounded-2xl text-center space-y-3">
+                            <svg class="w-16 h-16 mx-auto text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                            <p class="text-slate-400">No match results parsed yet in this session.</p>
+                            <p class="text-xs text-slate-500">Navigate to <strong>Launch Pipeline</strong> to trigger evaluations against job descriptions.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: NEW RUN TAB -->
+            <div id="tab-new-run" class="hidden space-y-8">
+                <div>
+                    <h2 class="text-2xl font-bold font-outfit tracking-wide text-white">Trigger New Matching Run</h2>
+                    <p class="text-sm text-slate-400">Feed job URLs and your résumé to run extraction, LLM alignment, and synchronization.</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Left: Form Input -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Resume Input -->
+                        <div class="glass-card p-6 rounded-2xl space-y-3">
+                            <label class="block text-sm font-bold text-white font-outfit">Your Résumé (Text Content)</label>
+                            <textarea id="input-resume" rows="12" class="w-full bg-space-black border space-border rounded-xl p-4 text-sm text-slate-300 focus:outline-none focus:border-neon-cyan transition" placeholder="Paste your full plaintext resume details here..."></textarea>
+                        </div>
+
+                        <!-- Job URLs Input -->
+                        <div class="glass-card p-6 rounded-2xl space-y-3">
+                            <label class="block text-sm font-bold text-white font-outfit">Job URLs to Scrape (one URL per line)</label>
+                            <textarea id="input-urls" rows="6" class="w-full bg-space-black border space-border rounded-xl p-4 text-sm text-slate-300 font-mono focus:outline-none focus:border-neon-cyan transition" placeholder="https://example.com/job-post-1&#10;https://example.com/job-post-2"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Right: Parameters and Trigger -->
+                    <div class="space-y-6">
+                        <div class="glass-card p-6 rounded-2xl space-y-6">
+                            <h3 class="text-md font-bold font-outfit text-white">Execution Settings</h3>
+                            
+                            <!-- Analysis Kind -->
+                            <div class="space-y-2">
+                                <label class="block text-xs uppercase tracking-wider text-slate-400 font-bold">Analysis Kind</label>
+                                <select id="input-kind" class="w-full bg-space-black border space-border rounded-xl p-3 text-sm text-slate-300 focus:outline-none focus:border-neon-cyan">
+                                    <option value="fit_score">Fit Score Matcher (Recommended)</option>
+                                    <option value="keyword_extraction">Keywords Extractor</option>
+                                    <option value="summary">Job Summary Only</option>
+                                    <option value="cover_letter_draft">Cover Letter Draft</option>
+                                </select>
+                            </div>
+
+                            <!-- Model Selection -->
+                            <div class="space-y-2">
+                                <label class="block text-xs uppercase tracking-wider text-slate-400 font-bold">Model</label>
+                                <select id="input-model" class="w-full bg-space-black border space-border rounded-xl p-3 text-sm text-slate-300 focus:outline-none focus:border-neon-cyan">
+                                    <option value="gpt-4o-mini">gemini-2.5-flash (Fast & Cheap)</option>
+                                    <option value="gpt-4o">gemini-2.5-pro (Smart & Detailed)</option>
+                                </select>
+                            </div>
+
+                            <!-- Teal Sync Toggle -->
+                            <div class="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                                <div>
+                                    <p class="text-sm font-semibold text-white">Sync to Teal</p>
+                                    <p class="text-xxs text-slate-400">Push results to Teal boards.</p>
+                                </div>
+                                <input type="checkbox" id="input-sync" checked class="w-4 h-4 text-neon-cyan bg-black border-slate-600 rounded focus:ring-neon-cyan focus:ring-opacity-50">
+                            </div>
+
+                            <button onclick="launchPipeline()" id="btn-launch" class="w-full py-4 bg-gradient-to-r from-neon-purple via-neon-cyan to-neon-purple bg-[size:200%] hover:bg-[position:right_center] text-black font-bold rounded-xl text-sm transition-all duration-300 hover:shadow-lg hover:shadow-neon-cyan/20">
+                                LAUNCH ENGINE
+                            </button>
+                        </div>
+
+                        <!-- Progress Display (Hidden by default) -->
+                        <div id="progress-card" class="hidden glass-card p-6 rounded-2xl space-y-4 neon-border-cyan">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <div class="w-2.5 h-2.5 rounded-full bg-neon-cyan animate-ping"></div>
+                                    <p class="text-xs font-bold text-neon-cyan font-outfit uppercase tracking-wider">Pipeline Running</p>
+                                </div>
+                                <span id="progress-task-id" class="text-xxs text-slate-500 font-mono">ID: --</span>
+                            </div>
+                            <p class="text-sm text-slate-300">Scraping job listings & running LLM match calculations...</p>
+                            <!-- Progress Bar -->
+                            <div class="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                                <div id="progress-bar-fill" class="w-0 h-full bg-gradient-to-r from-neon-purple to-neon-cyan transition-all duration-500 rounded-full"></div>
+                            </div>
+                            <p id="progress-status-text" class="text-xs text-slate-400 text-center font-mono">Initializing...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: WORKERS TAB -->
+            <div id="tab-workers" class="hidden space-y-8">
+                <div>
+                    <h2 class="text-2xl font-bold font-outfit tracking-wide text-white">Celery Workers Status</h2>
+                    <p class="text-sm text-slate-400">Real-time status of distributed background job processing nodes.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6" id="workers-list">
+                    <!-- Placeholder loading state -->
+                    <div class="glass-card p-6 rounded-2xl flex items-center justify-center">
+                        <p class="text-slate-400 text-sm">Querying active worker nodes...</p>
+                    </div>
+                </div>
+
+                <!-- Flower integration banner -->
+                <div class="glass-card p-8 rounded-2xl flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0 md:space-x-8 neon-border-cyan">
+                    <div class="space-y-2 text-center md:text-left">
+                        <h3 class="text-lg font-bold font-outfit text-white">Interactive Graph Visualization</h3>
+                        <p class="text-sm text-slate-400">Flower is running inside your Docker Compose orchestration. It tracks historical task stats, queue sizes, active processes, and charts graphs of succeeded vs failed runs.</p>
+                    </div>
+                    <a href="http://localhost:5555" target="_blank" class="px-6 py-4 bg-neon-cyan text-black hover:bg-neon-cyan/85 font-bold rounded-xl text-sm whitespace-nowrap transition-all">
+                        Launch Flower Dashboard ↗
+                    </a>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Script Logic -->
+    <script>
+        // Load settings / defaults on startup
+        window.addEventListener('DOMContentLoaded', async () => {
+            loadResumeTemplate();
+            loadJobsTemplate();
+            updateWorkersStatus();
+            // Poll worker status every 10 seconds
+            setInterval(updateWorkersStatus, 10000);
+        });
+
+        // Toggle active tabs
+        function switchTab(tabId) {
+            const tabs = ['dashboard', 'new-run', 'workers'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                const btn = document.getElementById(`btn-${t}`);
+                if (t === tabId) {
+                    el.classList.remove('hidden');
+                    btn.classList.add('bg-gradient-to-r', 'from-neon-cyan/15', 'to-transparent', 'text-neon-cyan', 'border-neon-cyan', 'shadow-sm', 'shadow-neon-cyan/5');
+                    btn.classList.remove('text-slate-400', 'hover:text-slate-200', 'hover:bg-white/5', 'border-transparent');
+                } else {
+                    el.classList.add('hidden');
+                    btn.classList.remove('bg-gradient-to-r', 'from-neon-cyan/15', 'to-transparent', 'text-neon-cyan', 'border-neon-cyan', 'shadow-sm', 'shadow-neon-cyan/5');
+                    btn.classList.add('text-slate-400', 'hover:text-slate-200', 'hover:bg-white/5', 'border-transparent');
+                }
+            });
+        }
+
+        // Templates Helper
+        async function loadResumeTemplate() {
+            try {
+                // Fetch default resume.txt if accessible, or leave empty
+                const resp = await fetch('/dashboard/resume.txt');
+                if (resp.ok) {
+                    const text = await resp.text();
+                    document.getElementById('input-resume').value = text;
+                }
+            } catch(e) {}
+        }
+        
+        async function loadJobsTemplate() {
+            try {
+                const resp = await fetch('/dashboard/jobs.txt');
+                if (resp.ok) {
+                    const text = await resp.text();
+                    document.getElementById('input-urls').value = text;
+                }
+            } catch(e) {}
+        }
+
+        // Query active Celery workers status
+        async function updateWorkersStatus() {
+            try {
+                const resp = await fetch('/api/v1/workers/status');
+                if (!resp.ok) throw new Error('API down');
+                const data = await resp.json();
+                
+                if (data.status === 'ok') {
+                    // Update header/metrics
+                    document.getElementById('stat-active-workers').innerText = data.total_workers_count;
+                    
+                    const listEl = document.getElementById('workers-list');
+                    listEl.innerHTML = '';
+                    
+                    if (data.workers.length === 0) {
+                        listEl.innerHTML = `
+                            <div class="glass-card p-6 rounded-2xl col-span-2 text-center py-8">
+                                <p class="text-slate-400">⚠️ No active workers connected to the Redis broker.</p>
+                                <p class="text-xs text-slate-500 mt-1">Make sure you ran the celery worker container.</p>
+                            </div>`;
+                        return;
+                    }
+                    
+                    data.workers.forEach(w => {
+                        listEl.innerHTML += `
+                            <div class="glass-card p-6 rounded-2xl flex items-center justify-between border-l-4 border-neon-cyan">
+                                <div class="space-y-1">
+                                    <h4 class="text-sm font-bold text-white font-mono">${w.name}</h4>
+                                    <p class="text-xs text-slate-400">Status: <span class="text-neon-green font-semibold">ONLINE</span></p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-xs text-slate-500">Active Tasks</p>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-neon-cyan/15 text-neon-cyan mt-1">
+                                        ${w.active_tasks_count} running
+                                    </span>
+                                </div>
+                            </div>`;
+                    });
+                }
+            } catch (e) {
+                document.getElementById('stat-active-workers').innerText = '0';
+            }
+        }
+
+        // Trigger pipeline matcher
+        async function launchPipeline() {
+            const urls = document.getElementById('input-urls').value.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+            const resume = document.getElementById('input-resume').value.trim();
+            const kind = document.getElementById('input-kind').value;
+            const model = document.getElementById('input-model').value;
+            const syncToTeal = document.getElementById('input-sync').checked;
+
+            if (urls.length === 0 || resume.length === 0) {
+                alert('Please provide at least one job URL and your resume text!');
+                return;
+            }
+
+            // Lock trigger button and show progress card
+            const launchBtn = document.getElementById('btn-launch');
+            launchBtn.disabled = true;
+            launchBtn.innerText = 'TRIGGERING...';
+            
+            const progressCard = document.getElementById('progress-card');
+            progressCard.classList.remove('hidden');
+            document.getElementById('progress-bar-fill').style.width = '10%';
+            document.getElementById('progress-status-text').innerText = 'Triggering task on API...';
+
+            try {
+                const resp = await fetch('/api/v1/pipeline', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        urls: urls,
+                        resume_text: resume,
+                        source: 'custom',
+                        analysis_kind: kind,
+                        sync_to_teal: syncToTeal
+                    })
+                });
+
+                if (!resp.ok) {
+                    const errDetail = await resp.json();
+                    throw new Error(errDetail.detail || 'Failed API call');
+                }
+
+                const taskData = await resp.json();
+                const taskId = taskData.task_id;
+                
+                document.getElementById('progress-task-id').innerText = `ID: ${taskId}`;
+                document.getElementById('progress-bar-fill').style.width = '30%';
+                document.getElementById('progress-status-text').innerText = 'Queued in Redis...';
+
+                // Poll task status
+                pollTaskStatus(taskId);
+
+            } catch (e) {
+                alert(`Error triggering pipeline: ${e.message}`);
+                launchBtn.disabled = false;
+                launchBtn.innerText = 'LAUNCH ENGINE';
+                progressCard.classList.add('hidden');
+            }
+        }
+
+        // Poll Task status
+        async function pollTaskStatus(taskId) {
+            let attempt = 0;
+            const interval = setInterval(async () => {
+                attempt++;
+                try {
+                    const resp = await fetch(`/api/v1/tasks/${taskId}`);
+                    if (!resp.ok) return;
+                    
+                    const data = await resp.json();
+                    
+                    if (data.status === 'success') {
+                        clearInterval(interval);
+                        document.getElementById('progress-bar-fill').style.width = '100%';
+                        document.getElementById('progress-status-text').innerText = 'Success! Fetching results...';
+                        
+                        setTimeout(() => {
+                            // Update metrics
+                            displayResults(data.result);
+                            
+                            // Reset launch UI
+                            const launchBtn = document.getElementById('btn-launch');
+                            launchBtn.disabled = false;
+                            launchBtn.innerText = 'LAUNCH ENGINE';
+                            document.getElementById('progress-card').classList.add('hidden');
+                            
+                            // Switch to dashboard
+                            switchTab('dashboard');
+                        }, 1000);
+                        
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval);
+                        alert(`Pipeline failed: ${data.error || 'Unknown execution error'}`);
+                        resetLaunchUI();
+                    } else {
+                        // Pending/processing: Pulse progress bar
+                        let progress = 30 + (attempt * 3);
+                        if (progress > 90) progress = 90;
+                        document.getElementById('progress-bar-fill').style.width = `${progress}%`;
+                        document.getElementById('progress-status-text').innerText = `In Progress (Polling attempt ${attempt})...`;
+                    }
+                } catch (e) {
+                    clearInterval(interval);
+                    alert('Error polling task status.');
+                    resetLaunchUI();
+                }
+            }, 2000);
+        }
+
+        function resetLaunchUI() {
+            const launchBtn = document.getElementById('btn-launch');
+            launchBtn.disabled = false;
+            launchBtn.innerText = 'LAUNCH ENGINE';
+            document.getElementById('progress-card').classList.add('hidden');
+        }
+
+        // Display results in Dashboard
+        function displayResults(result) {
+            const resultsList = document.getElementById('results-list');
+            
+            const ingestion = result.ingestion || {};
+            const succeeded = ingestion.succeeded || [];
+            const analyses = result.analyses || [];
+            
+            // Update stats
+            document.getElementById('stat-total-jobs').innerText = succeeded.length;
+            
+            if (analyses.length === 0) {
+                resultsList.innerHTML = `
+                    <div class="glass-card p-8 rounded-2xl text-center">
+                        <p class="text-slate-400">⚠️ All job URL scrapes failed. Double check your targets in jobs.txt.</p>
+                    </div>`;
+                document.getElementById('stat-avg-score').innerText = '0.0%';
+                return;
+            }
+
+            resultsList.innerHTML = '';
+            let totalScore = 0;
+            let countScores = 0;
+
+            analyses.forEach((analysis, idx) => {
+                const jobTitle = succeeded[idx] ? succeeded[idx].title : `Job ${idx+1}`;
+                const company = succeeded[idx] ? succeeded[idx].company : 'Unknown Company';
+                const url = succeeded[idx] ? succeeded[idx].source_url : '#';
+                
+                const fitScoreObj = analysis.fit_score || {};
+                const score = fitScoreObj.overall_score || 0;
+                
+                if (score > 0) {
+                    totalScore += score;
+                    countScores++;
+                }
+                
+                const scoreColor = score >= 75 ? 'text-neon-green border-neon-green/30' : score >= 50 ? 'text-neon-cyan border-neon-cyan/30' : 'text-neon-pink border-neon-pink/30';
+                const borderNeon = score >= 75 ? 'neon-border-green' : score >= 50 ? 'neon-border-cyan' : 'neon-border-pink';
+                
+                // Parse keywords lists
+                const overlap = fitScoreObj.keyword_overlap || [];
+                const missing = fitScoreObj.missing_keywords || [];
+                const strengths = fitScoreObj.strengths || [];
+                const gaps = fitScoreObj.gaps || [];
+                const recommendation = fitScoreObj.recommendation || 'No recommendation provided.';
+
+                resultsList.innerHTML += `
+                    <div class="glass-card p-6 rounded-2xl ${borderNeon} space-y-6">
+                        <!-- Top Details Header -->
+                        <div class="flex justify-between items-start">
+                            <div class="space-y-1 pr-4">
+                                <h4 class="text-lg font-bold text-white font-outfit tracking-wide">${jobTitle}</h4>
+                                <p class="text-sm text-neon-cyan font-semibold">${company}</p>
+                                <a href="${url}" target="_blank" class="text-xs text-slate-400 hover:text-neon-cyan transition truncate block max-w-lg">URL: ${url}</a>
+                            </div>
+                            
+                            <!-- Circular Gauge Display -->
+                            <div class="flex flex-col items-center shrink-0">
+                                <div class="w-16 h-16 rounded-full border-4 flex items-center justify-center bg-black/30 font-outfit font-extrabold text-lg ${scoreColor}">
+                                    ${score}%
+                                </div>
+                                <span class="text-xxs uppercase tracking-wider text-slate-500 font-bold mt-1">FIT SCORE</span>
+                            </div>
+                        </div>
+
+                        <!-- Highlights Lists Grid -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5">
+                            <!-- Strengths -->
+                            <div class="space-y-2">
+                                <p class="text-xs uppercase tracking-wider text-neon-green font-bold font-outfit">Strengths</p>
+                                <ul class="list-disc list-inside text-xs text-slate-300 space-y-1 leading-relaxed">
+                                    ${strengths.map(s => `<li>${s}</li>`).join('') || '<li>No specific strengths identified.</li>'}
+                                </ul>
+                            </div>
+                            <!-- Gaps -->
+                            <div class="space-y-2">
+                                <p class="text-xs uppercase tracking-wider text-neon-pink font-bold font-outfit">Gaps / Blockers</p>
+                                <ul class="list-disc list-inside text-xs text-slate-300 space-y-1 leading-relaxed">
+                                    ${gaps.map(g => `<li>${g}</li>`).join('') || '<li>No critical gaps identified.</li>'}
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Keywords Badges -->
+                        <div class="space-y-4 pt-4 border-t border-white/5">
+                            <div class="space-y-2">
+                                <p class="text-xs uppercase tracking-wider text-slate-400 font-bold">Matching Keywords</p>
+                                <div class="flex flex-wrap gap-2">
+                                    ${overlap.map(k => `<span class="px-2.5 py-1 rounded-full text-xxs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">${k}</span>`).join('') || '<span class="text-xs text-slate-500">None</span>'}
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <p class="text-xs uppercase tracking-wider text-slate-400 font-bold">Missing Keywords</p>
+                                <div class="flex flex-wrap gap-2">
+                                    ${missing.map(k => `<span class="px-2.5 py-1 rounded-full text-xxs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">${k}</span>`).join('') || '<span class="text-xs text-slate-500">None</span>'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recommendation Card -->
+                        <div class="p-4 bg-white/5 rounded-xl border border-white/5 space-y-2">
+                            <p class="text-xs uppercase tracking-wider text-neon-cyan font-bold font-outfit">AI Tailoring Recommendation</p>
+                            <p class="text-xs text-slate-300 leading-relaxed font-sans">${recommendation}</p>
+                        </div>
+                    </div>`;
+            });
+
+            // Update average score
+            const avg = countScores > 0 ? (totalScore / countScores) : 0;
+            document.getElementById('stat-avg-score').innerText = `${avg.toFixed(1)}%`;
+        }
+    </script>
+</body>
+</html>

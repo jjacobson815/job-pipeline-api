@@ -29,3 +29,10 @@ package-lock.json
 *.log
 .coverage
 htmlcov/
+
+# User Data / Resumes
+resume.txt
+jobs.txt
+app/static/resume.txt
+app/static/jobs.txt
+
