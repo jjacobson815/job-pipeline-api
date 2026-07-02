@@ -33,6 +33,9 @@ COPY --from=builder /install /usr/local
 # Copy application code
 COPY app/ ./app/
 
+# Ensure the appuser owns the working directory to write scheduler database and local states
+RUN chown -R appuser:appuser /app
+
 # Ensure Python can find the app package
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
@@ -40,6 +43,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 
 # Switch to non-root
 USER appuser
+
 
 EXPOSE 8000
 
