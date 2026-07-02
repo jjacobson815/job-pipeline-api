@@ -189,6 +189,28 @@ class JobIngestionService:
 
     # -- internals ---------------------------------------------------------
 
+    async def _check_cache(self, url: str) -> NormalisedJobListing | None:
+        """Check if job details are cached in Redis."""
+        import redis.asyncio as aioredis
+        import json
+        try:
+            r = aioredis.Redis.from_url(self._settings.redis_url_str)
+            cached = await r.get(f"job_cache:{url}")
+            await r.aclose()
+            if cached:
+                data = json.loads(cached)
+                logger.info("Retrieved cached job description for URL: %s", url)
+                return NormalisedJobListing(
+                    title=data.get("title", "Untitled Position"),
+                    company=data.get("company", "Unknown"),
+                    description=data.get("description", ""),
+                    source_url=url,
+                    source=JobBoardSource.CUSTOM,
+                )
+        except Exception as e:
+            logger.warning("Failed to check Redis cache: %s", e)
+        return None
+
     async def _ingest_one(
         self,
         client: httpx.AsyncClient,
@@ -197,6 +219,10 @@ class JobIngestionService:
     ) -> NormalisedJobListing | IngestionError:
         url_str = str(target.url)
         async with semaphore:
+            cached_listing = await self._check_cache(url_str)
+            if cached_listing:
+                return cached_listing
+
             raw = await self._fetch(client, target)
             if isinstance(raw, IngestionError):
                 return raw
@@ -303,11 +329,11 @@ class JobIngestionService:
         raw page content.  Falls back gracefully when fields are absent.
         """
         text = _html_to_text(raw.html_content)
-        if not text:
+        if not text or len(text.strip()) < 150:
             return IngestionError(
                 source_url=raw.source_url,
                 error_code="EMPTY_CONTENT",
-                detail="Extracted text is empty after HTML stripping",
+                detail="Extracted text is empty or too short (page might require JavaScript/SPA to render or bot challenge block occurred)",
             )
 
         title = self._extract_title(raw.html_content, text)

@@ -261,6 +261,27 @@ class JobSearchService:
                 if resp.status_code == 200:
                     data = resp.json()
                     jobs = data.get("jobs", [])
+                    
+                    # Store job details in Redis cache
+                    try:
+                        import redis.asyncio as aioredis
+                        from app.domains.job_ingestion.services import _html_to_text
+                        r = aioredis.Redis.from_url(self.settings.redis_url_str)
+                        for job in jobs:
+                            job_url = job.get("url")
+                            if job_url:
+                                desc_html = job.get("description", "")
+                                desc_text = _html_to_text(desc_html)
+                                cache_val = {
+                                    "title": job.get("title", "Untitled Position"),
+                                    "company": job.get("company_name", "Unknown"),
+                                    "description": desc_text[:10000] if desc_text else ""
+                                }
+                                await r.setex(f"job_cache:{job_url}", 3600, json.dumps(cache_val))
+                        await r.aclose()
+                    except Exception as redis_err:
+                        logger.warning("Failed to cache jobs in Redis: %s", redis_err)
+                        
                     return [job["url"] for job in jobs if "url" in job]
         except Exception as e:
             logger.warning("Failed to query Remotive API: %s", e)
