@@ -15,12 +15,14 @@ from app.core.config import get_settings
 
 def create_celery_app() -> Celery:
     """Build and configure the Celery application."""
+    import ssl
     settings = get_settings()
+    redis_url = settings.redis_url_str
 
     celery = Celery(
         "job_pipeline",
-        broker=settings.redis_url_str,
-        backend=settings.redis_url_str,
+        broker=redis_url,
+        backend=redis_url,
     )
 
     celery.conf.update(
@@ -40,6 +42,13 @@ def create_celery_app() -> Celery:
         # Autodiscover tasks inside app.tasks
         include=["app.tasks.pipeline_tasks"],
     )
+
+    # If using secure rediss:// connection, configure broker/backend SSL requirements
+    if redis_url.startswith("rediss://"):
+        celery.conf.update(
+            broker_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE},
+            redis_backend_use_ssl={"ssl_cert_reqs": ssl.CERT_NONE},
+        )
 
     celery.autodiscover_tasks(["app.tasks"])
 
