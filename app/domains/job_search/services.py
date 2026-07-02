@@ -120,13 +120,31 @@ class JobSearchService:
 
     async def _search_duckduckgo(self, client: httpx.AsyncClient, query: str) -> list[str]:
         """Search DuckDuckGo and parse result URLs."""
-        search_q = f'{query} (site:dice.com/job-detail OR site:remoterocketship.com/company OR site:turing.com/jobs OR site:linkedin.com/jobs/view OR site:weworkremotely.com/remote-jobs OR site:simplyhired.com/job OR site:ziprecruiter.com/jobs)'
+        # Clean double quotes from query for site-restricted search to prevent strict syntax failures
+        clean_q = query.replace('"', '')
+        search_q = f'{clean_q} (site:dice.com/job-detail OR site:remoterocketship.com/company OR site:turing.com/jobs OR site:linkedin.com/jobs/view OR site:weworkremotely.com/remote-jobs OR site:simplyhired.com/job OR site:ziprecruiter.com/jobs)'
+        
+        links = await self._fetch_and_parse_ddg(client, search_q)
+        
+        # Fallback to a broader query if the restricted site search yields nothing
+        if not links:
+            logger.info("Restricted site search yielded 0 results. Retrying with broad query for '%s'", query)
+            broad_q = f"{clean_q} remote developer jobs"
+            links = await self._fetch_and_parse_ddg(client, broad_q)
+            
+        return links
+
+    async def _fetch_and_parse_ddg(self, client: httpx.AsyncClient, search_q: str) -> list[str]:
+        """Helper to fetch and parse links from a DuckDuckGo HTML query."""
         url = f"https://html.duckduckgo.com/html/?q={urllib.parse.quote(search_q)}"
         
-        logger.info("Scraping DDG search: %s", url)
-        resp = await client.get(url, headers=self._headers, follow_redirects=True)
-        if resp.status_code != 200:
-            logger.error("DuckDuckGo search failed: HTTP %d", resp.status_code)
+        try:
+            resp = await client.get(url, headers=self._headers, follow_redirects=True)
+            if resp.status_code != 200:
+                logger.error("DuckDuckGo fetch failed: HTTP %d", resp.status_code)
+                return []
+        except Exception as e:
+            logger.exception("DuckDuckGo HTTP call failed: %s", e)
             return []
 
         # Parse links using regex
@@ -154,13 +172,14 @@ class JobSearchService:
         for l in links:
             if 'duckduckgo.com' in l:
                 continue
-            # Keep links matching job posting structures
+            # Keep links matching job posting structures or board portals
             if any(domain in l.lower() for domain in [
                 'dice.com/job-detail', 'remoterocketship.com', 'turing.com/jobs', 
                 'linkedin.com/jobs', 'weworkremotely.com', 'simplyhired.com/job', 
                 'ziprecruiter.com/jobs', 'reactjobs.io', 'glassdoor.com/job', 
-                'workingnomads.com', 'flexjobs.com', 'arbeitnow.com'
+                'workingnomads.com', 'flexjobs.com', 'arbeitnow.com', 'indeed.com/viewjob'
             ]):
                 filtered_links.append(l)
 
-        return filtered_links
+        return list(dict.fromkeys(filtered_links))
+
