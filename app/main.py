@@ -74,6 +74,10 @@ class TaskResponse(BaseModel):
     task_id: str
     status: str = "queued"
 
+class DiscoverRequest(BaseModel):
+    resume_text: str = Field(min_length=1)
+
+
 
 # ---------------------------------------------------------------------------
 # App factory
@@ -148,6 +152,17 @@ def create_app() -> FastAPI:
             body.sync_to_teal,
         )
         return TaskResponse(task_id=task.id)
+
+    @app.post(
+        "/api/v1/jobs/discover",
+        tags=["pipeline"]
+    )
+    async def discover_jobs(body: DiscoverRequest) -> dict:
+        """Discover relevant job URLs based on resume details."""
+        from app.domains.job_search.services import JobSearchService
+        service = JobSearchService()
+        return await service.discover_jobs(body.resume_text)
+
 
 
     @app.get(
