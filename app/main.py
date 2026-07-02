@@ -13,12 +13,15 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
-
 
 from app.core.config import get_settings
 from app.domains.job_ingestion.models import JobBoardSource
 from app.tasks.pipeline_tasks import analyse_job, full_pipeline, ingest_jobs, sync_to_teal
+from app.core.celery_app import celery_app
+
 
 logger = logging.getLogger(__name__)
 
@@ -174,7 +177,57 @@ def create_app() -> FastAPI:
             }
         return {"task_id": task_id, "status": result.state.lower(), "result": None}
 
+    # --- Workers status ----------------------------------------------------
+
+    @app.get("/api/v1/workers/status", tags=["ops"])
+    async def get_workers_status() -> dict:
+        """Query Celery active workers and status."""
+        try:
+            inspect = celery_app.control.inspect()
+            inspect.timeout = 2.0
+            
+            ping = inspect.ping() or {}
+            active = inspect.active() or {}
+            reserved = inspect.reserved() or {}
+            
+            workers = []
+            for name in ping.keys():
+                workers.append({
+                    "name": name,
+                    "status": "online",
+                    "active_tasks_count": len(active.get(name, [])),
+                    "reserved_tasks_count": len(reserved.get(name, []))
+                })
+            
+            return {
+                "status": "ok",
+                "workers": workers,
+                "total_workers_count": len(workers),
+                "active_tasks_total": sum(len(tasks) for tasks in active.values())
+            }
+        except Exception as e:
+            logger.exception("Failed to query Celery workers status: %s", e)
+            return {
+                "status": "error",
+                "detail": str(e),
+                "workers": [],
+                "total_workers_count": 0,
+                "active_tasks_total": 0
+            }
+
+    # --- Static Dashboard Mount --------------------------------------------
+
+    import os
+    static_dir = os.path.join(os.path.dirname(__file__), "static")
+    os.makedirs(static_dir, exist_ok=True)
+    app.mount("/dashboard", StaticFiles(directory=static_dir, html=True), name="static")
+
+    @app.get("/")
+    async def redirect_to_dashboard():
+        return RedirectResponse(url="/dashboard/")
+
     return app
+
 
 
 app = create_app()
