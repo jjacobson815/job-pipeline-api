@@ -33,6 +33,7 @@ htmlcov/
 # User Data / Resumes
 resume.txt
 jobs.txt
-app/static/resume.txt
-app/static/jobs.txt
+app/data/resume.txt
+app/data/jobs.txt
+
 

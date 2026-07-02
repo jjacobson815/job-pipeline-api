@@ -202,18 +202,23 @@ def full_pipeline(
         logger.exception("Ingestion step failed inside full_pipeline: %s", exc)
         raise self.retry(exc=exc)
 
-    # Stage 2: Analyse each successfully ingested job
+    # Stage 2: Analyse each successfully ingested job concurrently
     analysis_results: list[dict] = []
     analysis_service = LLMAnalysisService()
-    for job in ingestion_result.get("succeeded", []):
-        request = AnalysisRequest(
-            kind=AnalysisKind(analysis_kind),
-            job_description=job["description"],
-            resume_text=resume_text,
-        )
+    succeeded_jobs = ingestion_result.get("succeeded", [])
+    if succeeded_jobs:
+        requests = [
+            AnalysisRequest(
+                kind=AnalysisKind(analysis_kind),
+                job_description=job["description"],
+                resume_text=resume_text,
+            )
+            for job in succeeded_jobs
+        ]
         try:
-            analysis_obj = _run_async(analysis_service.analyse(request))
-            analysis_results.append(analysis_obj.model_dump(mode="json"))
+            batch_results = _run_async(analysis_service.analyse_batch(requests))
+            for res in batch_results:
+                analysis_results.append(res.model_dump(mode="json"))
         except Exception as exc:
             logger.exception("Analysis step failed inside full_pipeline: %s", exc)
             raise self.retry(exc=exc)

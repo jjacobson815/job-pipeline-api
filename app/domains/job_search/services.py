@@ -37,7 +37,9 @@ class JobSearchService:
         unique_urls = list(dict.fromkeys(all_urls))
         
         # Fallback to pre-vetted job postings if search engine is blocked or rate limited
+        is_fallback = False
         if not unique_urls:
+            is_fallback = True
             logger.info("Search queries returned 0 results. Injecting high-quality fallback job postings.")
             unique_urls = [
                 "https://www.turing.com/jobs/remote-dotnet-core-developer",
@@ -52,7 +54,8 @@ class JobSearchService:
         return {
             "status": "success",
             "queries": queries,
-            "urls": unique_urls[:15]  # Cap at 15 most relevant job postings
+            "urls": unique_urls[:15],  # Cap at 15 most relevant job postings
+            "fallback": is_fallback
         }
 
     async def _generate_search_queries(self, resume_text: str) -> list[str]:
@@ -62,14 +65,16 @@ class JobSearchService:
             '"Senior Full Stack Engineer" C# remote'
         ]
         
-        api_key = self.settings.gemini_api_key or self.settings.openai_api_key
-        # Check if keys are placeholders or not provided
-        if not api_key or "your-" in api_key or "sk-your" in api_key:
+        # Check if keys are placeholders or not provided using centralized configuration properties
+        use_gemini = self.settings.is_gemini_configured
+        use_openai = self.settings.is_openai_configured
+        
+        if not use_gemini and not use_openai:
             logger.warning("No valid API key found. Falling back to default search queries.")
             return fallback_queries
 
+        api_key = self.settings.gemini_api_key if use_gemini else self.settings.openai_api_key
         # Construct payload for the OpenAI compatibility layer
-        use_gemini = self.settings.gemini_api_key is not None
         base_url = (
             "https://generativelanguage.googleapis.com/v1beta/openai/"
             if use_gemini
