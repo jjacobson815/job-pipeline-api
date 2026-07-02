@@ -74,6 +74,14 @@ def _html_to_text(html: str) -> str:
 class JobIngestionService:
     """Scrapes job-board URLs and normalises the results."""
 
+    _HEADERS = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+        "Connection": "keep-alive",
+        "Upgrade-Insecure-Requests": "1"
+    }
+
     def __init__(self, settings: Settings | None = None) -> None:
         self._settings = settings or get_settings()
         self._timeout = httpx.Timeout(
@@ -95,7 +103,7 @@ class JobIngestionService:
         async with httpx.AsyncClient(
             timeout=self._timeout,
             follow_redirects=True,
-            headers={"User-Agent": "JobPipelineBot/0.1"},
+            headers=self._HEADERS,
         ) as client:
             tasks = [
                 self._ingest_one(client, target, semaphore) for target in targets
@@ -162,6 +170,7 @@ class JobIngestionService:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(connect=5.0, read=10.0, write=5.0, pool=3.0),
             follow_redirects=True,
+            headers=self._HEADERS,
         ) as client:
             try:
                 resp = await client.head(str(url))
