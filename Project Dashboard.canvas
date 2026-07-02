@@ -1,0 +1,23 @@
+{
+	"nodes":[
+		{"id":"api_node_0","type":"file","file":"docs/api/app.core.celery_app.md","x":0,"y":0,"width":400,"height":500},
+		{"id":"api_node_1","type":"file","file":"docs/api/app.core.config.md","x":450,"y":0,"width":400,"height":500},
+		{"id":"api_node_2","type":"file","file":"docs/api/app.core.md","x":900,"y":0,"width":400,"height":500},
+		{"id":"api_node_3","type":"file","file":"docs/api/app.domains.job_ingestion.md","x":0,"y":550,"width":400,"height":500},
+		{"id":"api_node_4","type":"file","file":"docs/api/app.domains.job_ingestion.models.md","x":450,"y":550,"width":400,"height":500},
+		{"id":"api_node_5","type":"file","file":"docs/api/app.domains.job_ingestion.services.md","x":900,"y":550,"width":400,"height":500},
+		{"id":"api_node_6","type":"file","file":"docs/api/app.domains.llm_analysis.md","x":0,"y":1100,"width":400,"height":500},
+		{"id":"api_node_7","type":"file","file":"docs/api/app.domains.llm_analysis.models.md","x":450,"y":1100,"width":400,"height":500},
+		{"id":"api_node_8","type":"file","file":"docs/api/app.domains.llm_analysis.services.md","x":900,"y":1100,"width":400,"height":500},
+		{"id":"api_node_9","type":"file","file":"docs/api/app.domains.md","x":0,"y":1650,"width":400,"height":500},
+		{"id":"api_node_10","type":"file","file":"docs/api/app.domains.teal_sync.md","x":450,"y":1650,"width":400,"height":500},
+		{"id":"api_node_11","type":"file","file":"docs/api/app.domains.teal_sync.models.md","x":900,"y":1650,"width":400,"height":500},
+		{"id":"api_node_12","type":"file","file":"docs/api/app.domains.teal_sync.services.md","x":0,"y":2200,"width":400,"height":500},
+		{"id":"api_node_13","type":"file","file":"docs/api/app.main.md","x":450,"y":2200,"width":400,"height":500},
+		{"id":"api_node_14","type":"file","file":"docs/api/app.md","x":900,"y":2200,"width":400,"height":500},
+		{"id":"api_node_15","type":"file","file":"docs/api/app.tasks.md","x":0,"y":2750,"width":400,"height":500},
+		{"id":"api_node_16","type":"file","file":"docs/api/app.tasks.pipeline_tasks.md","x":450,"y":2750,"width":400,"height":500},
+		{"id":"api_node_17","type":"file","file":"docs/api/modules.md","x":900,"y":2750,"width":400,"height":500}
+	],
+	"edges":[]
+}

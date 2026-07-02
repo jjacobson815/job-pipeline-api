@@ -1,0 +1,11 @@
+{
+  "name": "job-pipeline-api",
+  "version": "0.1.0",
+  "description": "Job Pipeline API docs helper scripts",
+  "scripts": {
+    "docs:generate": "python3 scripts/generate-docs.py",
+    "pipeline:run": "python3 scripts/auto-pipeline.py",
+    "pipeline:cli": "python3 scripts/run-pipeline-cli.py"
+  }
+}
+
