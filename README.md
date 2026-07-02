@@ -58,7 +58,11 @@ docker-compose up --build
 ```
 Once active:
 * **Swagger Documentation**: View endpoints at `http://localhost:8000/docs`.
-* **Trigger Background Pipeline**: Run `npm run pipeline:run` to fire requests asynchronously and poll task completion status in the terminal.
+* **Trigger Background Pipeline**: Run the automation script to fire requests and poll status:
+  ```powershell
+  python3 scripts/auto-pipeline.py
+  ```
+
 
 ---
 
