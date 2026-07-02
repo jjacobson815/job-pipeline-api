@@ -41,6 +41,36 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 # ---------------------------------------------------------------------------
+# Request / Response schemas
+# ---------------------------------------------------------------------------
+
+class IngestRequest(BaseModel):
+    urls: list[str] = Field(min_length=1, description="Job-board URLs to scrape")
+    source: JobBoardSource = JobBoardSource.CUSTOM
+
+class AnalyseRequest(BaseModel):
+    job_description: str = Field(min_length=1)
+    resume_text: str = Field(min_length=1)
+    kind: str = Field(default="fit_score")
+    model: str = Field(default="gpt-4o-mini")
+
+class SyncRequest(BaseModel):
+    jobs: list[dict] = Field(min_length=1)
+    dry_run: bool = False
+
+class PipelineRequest(BaseModel):
+    urls: list[str] = Field(min_length=1)
+    resume_text: str = Field(min_length=1)
+    source: str = Field(default="custom")
+    analysis_kind: str = Field(default="fit_score")
+    sync_to_teal: bool = True
+
+class TaskResponse(BaseModel):
+    task_id: str
+    status: str = "queued"
+
+
+# ---------------------------------------------------------------------------
 # App factory
 # ---------------------------------------------------------------------------
 
@@ -59,32 +89,6 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "healthy", "version": settings.app_version}
 
-    # --- Request / Response schemas ----------------------------------------
-
-    class IngestRequest(BaseModel):
-        urls: list[str] = Field(min_length=1, description="Job-board URLs to scrape")
-        source: JobBoardSource = JobBoardSource.CUSTOM
-
-    class AnalyseRequest(BaseModel):
-        job_description: str = Field(min_length=1)
-        resume_text: str = Field(min_length=1)
-        kind: str = Field(default="fit_score")
-        model: str = Field(default="gpt-4o-mini")
-
-    class SyncRequest(BaseModel):
-        jobs: list[dict] = Field(min_length=1)
-        dry_run: bool = False
-
-    class PipelineRequest(BaseModel):
-        urls: list[str] = Field(min_length=1)
-        resume_text: str = Field(min_length=1)
-        source: str = Field(default="custom")
-        analysis_kind: str = Field(default="fit_score")
-        sync_to_teal: bool = True
-
-    class TaskResponse(BaseModel):
-        task_id: str
-        status: str = "queued"
 
     # --- Endpoints ---------------------------------------------------------
 
