@@ -33,17 +33,40 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # --- Celery worker ------------------------------------------------------
-  celery-worker:
+  # --- Celery I/O Worker (Gevent) -----------------------------------------
+  celery-io-worker:
     build:
       context: .
       dockerfile: Dockerfile
     command: >
-      celery -A app.core.celery_app:celery_app worker
+      celery -A app.core.celery_app worker
+      -n io_worker@%h
+      -Q io_bound
+      --pool=gevent
+      --concurrency=100
       --loglevel=info
+    env_file:
+      - .env
+    environment:
+      - REDIS_URL=${REDIS_URL:-redis://:redis-secure-password-789@redis:6379/0}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # --- Celery CPU Worker (Prefork) ----------------------------------------
+  celery-cpu-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      celery -A app.core.celery_app worker
+      -n cpu_worker@%h
+      -Q cpu_bound
+      --pool=prefork
       --concurrency=4
-      --queues=pipeline
-      -E
+      --max-tasks-per-child=200
+      --loglevel=info
     env_file:
       - .env
     environment:
@@ -87,7 +110,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      celery-worker:
+      api:
         condition: service_started
     restart: unless-stopped
 

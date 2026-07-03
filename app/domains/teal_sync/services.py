@@ -30,8 +30,13 @@ logger = logging.getLogger(__name__)
 class TealSyncService:
     """Async client for the Teal job-tracking REST API."""
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        api_key: str | None = None
+    ) -> None:
         self._settings = settings or get_settings()
+        self._api_key = api_key
         self._base_url = str(self._settings.teal_base_url).rstrip("/")
         self._timeout = httpx.Timeout(
             connect=10.0,
@@ -41,8 +46,9 @@ class TealSyncService:
         )
 
     def _headers(self) -> dict[str, str]:
+        key = self._api_key or self._settings.teal_api_key
         return {
-            "Authorization": f"Bearer {self._settings.teal_api_key}",
+            "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
         }
@@ -98,11 +104,14 @@ class TealSyncService:
         synced = 0
         failed = 0
 
+        key = self._api_key or self._settings.teal_api_key
+        is_configured = bool(key and "your-teal" not in key and not key.startswith("mock"))
+
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             for job in request.jobs:
                 if (
                     request.dry_run
-                    or not self._settings.is_teal_configured
+                    or not is_configured
                 ):
                     items.append(
                         TealSyncItemResult(
