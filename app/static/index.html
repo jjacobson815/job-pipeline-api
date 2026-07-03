@@ -165,6 +165,10 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                         <span>Celery Workers</span>
                     </button>
+                    <button onclick="switchTab('profile')" id="btn-profile" class="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-200 text-slate-400 hover:text-slate-200 hover:bg-white/5 border-l-2 border-transparent">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        <span>Profile Settings</span>
+                    </button>
                 </nav>
             </div>
             
@@ -178,15 +182,6 @@
                             <p class="text-xs font-bold text-white truncate" id="sidebar-email">user@email.com</p>
                             <p class="text-xxs text-slate-500 uppercase font-semibold">Active Session</p>
                         </div>
-                    </div>
-                    
-                    <div class="space-y-1">
-                        <label class="block text-xxs font-bold uppercase tracking-wider text-slate-500 font-outfit">Gemini key override</label>
-                        <input type="password" id="input-gemini-key" class="w-full bg-space-black border border-white/10 rounded-lg px-2.5 py-1.5 text-xxs text-slate-300 font-mono focus:outline-none focus:border-neon-cyan transition" placeholder="Optional personal key..." onchange="saveProfileKeys()" />
-                    </div>
-                    <div class="space-y-1">
-                        <label class="block text-xxs font-bold uppercase tracking-wider text-slate-500 font-outfit">Teal key override</label>
-                        <input type="password" id="input-teal-key" class="w-full bg-space-black border border-white/10 rounded-lg px-2.5 py-1.5 text-xxs text-slate-300 font-mono focus:outline-none focus:border-neon-cyan transition" placeholder="Optional personal key..." onchange="saveProfileKeys()" />
                     </div>
 
                     <button onclick="handleLogOut()" class="w-full py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold rounded-lg text-xxs transition duration-200 border border-red-500/25">
@@ -264,17 +259,12 @@
             <div id="tab-new-run" class="hidden space-y-8">
                 <div>
                     <h2 class="text-2xl font-bold font-outfit tracking-wide text-white">Trigger New Matching Run</h2>
-                    <p class="text-sm text-slate-400">Feed job URLs and your résumé to run extraction, LLM alignment, and synchronization.</p>
+                    <p class="text-sm text-slate-400">Feed job URLs to run extraction, LLM alignment, and synchronization.</p>
                 </div>
 
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     <!-- Left: Form Input -->
                     <div class="lg:col-span-2 space-y-6">
-                        <!-- Resume Input -->
-                        <div class="glass-card p-6 rounded-2xl space-y-3">
-                            <label class="block text-sm font-bold text-white font-outfit">Your Résumé (Text Content)</label>
-                            <textarea id="input-resume" rows="12" class="w-full bg-space-black border space-border rounded-xl p-4 text-sm text-slate-300 focus:outline-none focus:border-neon-cyan transition" placeholder="Paste your full plaintext resume details here..." onchange="saveProfileResume(this.value)"></textarea>
-                        </div>
 
                         <!-- Job URLs Input -->
                         <div class="glass-card p-6 rounded-2xl space-y-4">
@@ -387,13 +377,129 @@
                 </div>
             </div>
 
+            <!-- SECTION 5: PROFILE TAB -->
+            <div id="tab-profile" class="hidden space-y-8">
+                <div>
+                    <h2 class="text-2xl font-bold font-outfit tracking-wide text-white">Profile Settings</h2>
+                    <p class="text-sm text-slate-400">Configure your credentials, API key overrides, and resume template.</p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <!-- Left: API Key Overrides Form -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <div class="glass-card p-6 rounded-2xl space-y-4">
+                            <h3 class="text-md font-bold font-outfit text-white">API Key Overrides</h3>
+                            <p class="text-xs text-slate-400 leading-relaxed">Provide your own API keys to run analyses and syncs using your personal limits instead of the system defaults.</p>
+                            
+                            <!-- Gemini Key -->
+                            <div class="space-y-2">
+                                <label class="block text-xxs font-bold uppercase tracking-wider text-slate-400 font-outfit">Gemini API Key</label>
+                                <div class="relative">
+                                    <input type="password" id="input-gemini-key" class="w-full bg-space-black border space-border rounded-xl pl-4 pr-10 py-3 text-xs text-slate-300 font-mono focus:outline-none focus:border-neon-cyan" placeholder="Optional personal key..." onchange="saveProfileKeys()" />
+                                    <button type="button" onclick="togglePasswordVisibility('input-gemini-key', 'btn-toggle-gemini')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-neon-cyan">
+                                        <svg id="btn-toggle-gemini" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Teal Key -->
+                            <div class="space-y-2">
+                                <label class="block text-xxs font-bold uppercase tracking-wider text-slate-400 font-outfit">Teal API Key</label>
+                                <div class="relative">
+                                    <input type="password" id="input-teal-key" class="w-full bg-space-black border space-border rounded-xl pl-4 pr-10 py-3 text-xs text-slate-300 font-mono focus:outline-none focus:border-neon-cyan" placeholder="Optional personal key..." onchange="saveProfileKeys()" />
+                                    <button type="button" onclick="togglePasswordVisibility('input-teal-key', 'btn-toggle-teal')" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-neon-cyan">
+                                        <svg id="btn-toggle-teal" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Resume Text Template -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="glass-card p-6 rounded-2xl space-y-3">
+                            <label class="block text-sm font-bold text-white font-outfit">Your Default Résumé (Text Content)</label>
+                            <p class="text-xs text-slate-400 leading-relaxed">Save your plaintext resume here. It will be stored in your database account and auto-loaded whenever you run a new analysis, saving you from copy-pasting it every run.</p>
+                            <textarea id="input-resume" rows="16" class="w-full bg-space-black border space-border rounded-xl p-4 text-sm text-slate-300 focus:outline-none focus:border-neon-cyan transition font-sans" placeholder="Paste your full plaintext resume details here..." onchange="saveProfileResume(this.value)"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
+
+    <!-- Custom Toast Notification Container -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-[10000] flex flex-col gap-3 max-w-sm w-full pointer-events-none"></div>
 
     <!-- Script Logic -->
     <script>
         // Authentication state
         let authMode = 'login'; // 'login' or 'register'
+
+        // Styled toast notification system
+        function showNotification(message, type = 'error') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            
+            const toast = document.createElement('div');
+            let borderStyle = 'border-neon-pink neon-border-pink';
+            let icon = `
+                <svg class="w-5 h-5 text-neon-pink shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            `;
+            
+            if (type === 'warning') {
+                borderStyle = 'border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.15)]';
+                icon = `
+                    <svg class="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                `;
+            } else if (type === 'success') {
+                borderStyle = 'border-neon-green neon-border-green';
+                icon = `
+                    <svg class="w-5 h-5 text-neon-green shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                `;
+            }
+
+            toast.className = `glass-card p-4 rounded-2xl flex items-start space-x-3 pointer-events-auto shadow-2xl transition-all duration-300 transform translate-y-5 opacity-0 border-l-4 ${borderStyle}`;
+            
+            toast.innerHTML = `
+                ${icon}
+                <div class="flex-1 text-xs text-slate-200 font-medium leading-relaxed font-sans">${message}</div>
+                <button class="text-slate-500 hover:text-white transition text-base font-bold leading-none select-none">&times;</button>
+            `;
+            
+            toast.querySelector('button').onclick = () => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            };
+            
+            container.appendChild(toast);
+            
+            // Trigger animation
+            setTimeout(() => {
+                toast.classList.remove('opacity-0', 'translate-y-5');
+            }, 10);
+            
+            // Auto close after 5 seconds
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.classList.add('opacity-0', 'translate-y-2');
+                    setTimeout(() => toast.remove(), 300);
+                }
+            }, 5000);
+        }
 
         function toggleAuthMode() {
             authMode = authMode === 'login' ? 'register' : 'login';
@@ -461,7 +567,7 @@
                 await initializeApp();
 
             } catch (e) {
-                alert(e.message);
+                showNotification(e.message, 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerText = authMode === 'login' ? 'SIGN IN' : 'REGISTER';
@@ -522,6 +628,7 @@
             document.getElementById('sidebar-email').innerText = 'offline';
             document.getElementById('input-gemini-key').value = '';
             document.getElementById('input-teal-key').value = '';
+            document.getElementById('input-resume').value = '';
         }
 
         // Load settings / defaults on startup
@@ -543,7 +650,7 @@
 
         // Toggle active tabs
         function switchTab(tabId) {
-            const tabs = ['dashboard', 'new-run', 'workers', 'history'];
+            const tabs = ['dashboard', 'new-run', 'workers', 'history', 'profile'];
             tabs.forEach(t => {
                 const el = document.getElementById(`tab-${t}`);
                 const btn = document.getElementById(`btn-${t}`);
@@ -557,6 +664,25 @@
                     btn.classList.add('text-slate-400', 'hover:text-slate-200', 'hover:bg-white/5', 'border-transparent');
                 }
             });
+        }
+
+        // Toggle password fields visibility
+        function togglePasswordVisibility(inputId, btnId) {
+            const input = document.getElementById(inputId);
+            const btn = document.getElementById(btnId);
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a10.025 10.025 0 012.42-3.868M9.828 9.828A3 3 0 0014.17 14.17m3.99-3.99A10.025 10.025 0 0121.542 12c-1.274 4.057-5.064 7-9.542 7-1.393 0-2.71-.277-3.917-.778M3 3l18 18" />
+                `;
+            } else {
+                input.type = 'password';
+                btn.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                `;
+            }
         }
 
         // Templates Helper
@@ -634,7 +760,7 @@
         async function discoverJobs() {
             const resume = document.getElementById('input-resume').value.trim();
             if (!resume) {
-                alert('Please paste your resume text first to allow matching discovery!');
+                showNotification('Please paste your resume text first to allow matching discovery!', 'warning');
                 return;
             }
 
@@ -682,7 +808,7 @@
                     statusEl.innerText = '⚠️ No active matching job links found on DuckDuckGo. Try broadening search.';
                 }
             } catch(e) {
-                alert(`Discovery failed: ${e.message}`);
+                showNotification(`Discovery failed: ${e.message}`, 'error');
                 statusEl.classList.add('hidden');
             } finally {
                 btn.disabled = false;
@@ -702,7 +828,7 @@
             const syncToTeal = document.getElementById('input-sync').checked;
 
             if (urls.length === 0 || resume.length === 0) {
-                alert('Please provide at least one job URL and your resume text!');
+                showNotification('Please provide at least one job URL and your resume text!', 'warning');
                 return;
             }
 
@@ -755,7 +881,7 @@
                 pollTaskStatus(taskId);
 
             } catch (e) {
-                alert(`Error triggering pipeline: ${e.message}`);
+                showNotification(`Error triggering pipeline: ${e.message}`, 'error');
                 launchBtn.disabled = false;
                 launchBtn.innerText = 'LAUNCH ENGINE';
                 progressCard.classList.add('hidden');
@@ -796,7 +922,7 @@
                         
                     } else if (data.status === 'failed') {
                         clearInterval(interval);
-                        alert(`Pipeline failed: ${data.error || 'Unknown execution error'}`);
+                        showNotification(`Pipeline failed: ${data.error || 'Unknown execution error'}`, 'error');
                         resetLaunchUI();
                     } else {
                         // Pending/processing: Pulse progress bar
@@ -807,7 +933,7 @@
                     }
                 } catch (e) {
                     clearInterval(interval);
-                    alert('Error polling task status.');
+                    showNotification('Error polling task status.', 'error');
                     resetLaunchUI();
                 }
             }, 2000);

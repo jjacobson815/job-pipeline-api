@@ -329,15 +329,8 @@ def create_app() -> FastAPI:
 
     @api_router.get("/profile/resume", tags=["profile"])
     async def get_resume(current_user: User = Depends(get_current_user)) -> dict[str, str]:
-        """Read and return user resume contents or fallback to default template."""
-        if current_user.resume_text:
-            return {"resume_text": current_user.resume_text}
-
-        path = os.path.join(os.path.dirname(__file__), "data", "resume.txt")
-        if not os.path.exists(path):
-            return {"resume_text": ""}
-        with open(path, "r", encoding="utf-8") as f:
-            return {"resume_text": f.read()}
+        """Return user resume contents or empty string."""
+        return {"resume_text": current_user.resume_text or ""}
 
     @api_router.get("/profile/jobs", tags=["profile"])
     async def get_jobs() -> dict[str, str]:

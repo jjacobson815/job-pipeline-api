@@ -23,8 +23,8 @@ class User(Base):
     
     # Profile & Settings
     resume_text = Column(Text, nullable=True, default="")
-    gemini_api_key = Column(String(255), nullable=True)
-    teal_api_key = Column(String(255), nullable=True)
+    gemini_api_key = Column(Text, nullable=True)
+    teal_api_key = Column(Text, nullable=True)
 
     # Relations
     runs = relationship("PipelineRun", back_populates="user", cascade="all, delete-orphan")
