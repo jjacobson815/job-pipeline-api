@@ -60,8 +60,15 @@ _SYSTEM_PROMPTS: dict[AnalysisKind, str] = {
 class LLMAnalysisService:
     """Async OpenAI integration for job-application analysis."""
 
-    def __init__(self, settings: Settings | None = None) -> None:
+    def __init__(
+        self,
+        settings: Settings | None = None,
+        gemini_api_key: str | None = None,
+        openai_api_key: str | None = None,
+    ) -> None:
         self._settings = settings or get_settings()
+        self._gemini_api_key = gemini_api_key
+        self._openai_api_key = openai_api_key
         self._base_url = str(self._settings.openai_base_url).rstrip("/")
         self._timeout = httpx.Timeout(
             connect=10.0,
@@ -73,8 +80,11 @@ class LLMAnalysisService:
     async def analyse(self, request: AnalysisRequest) -> AnalysisResponse | AnalysisError:
         """Run a single analysis request against OpenAI or Gemini."""
         # Determine if we should use Gemini
-        use_gemini = self._settings.is_gemini_configured
-        use_openai = self._settings.is_openai_configured
+        gemini_key = self._gemini_api_key or self._settings.gemini_api_key
+        openai_key = self._openai_api_key or self._settings.openai_api_key
+
+        use_gemini = bool(gemini_key and "your-gemini" not in gemini_key and not gemini_key.startswith("mock"))
+        use_openai = bool(openai_key and "your-openai" not in openai_key and not openai_key.startswith("mock"))
 
         # Check if using placeholder or missing keys to use mock fallback
         if not use_gemini and not use_openai:
@@ -114,7 +124,7 @@ class LLMAnalysisService:
         model = request.model
         if use_gemini:
             base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
-            api_key = self._settings.gemini_api_key
+            api_key = gemini_key
             # Map OpenAI models to Gemini counterparts
             if model == "gpt-4o-mini":
                 model = "gemini-2.5-flash"
@@ -122,7 +132,7 @@ class LLMAnalysisService:
                 model = "gemini-2.5-pro"
         else:
             base_url = self._base_url
-            api_key = self._settings.openai_api_key
+            api_key = openai_key
 
 
         payload = {

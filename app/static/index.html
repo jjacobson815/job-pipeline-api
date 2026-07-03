@@ -83,6 +83,40 @@
 </head>
 <body class="font-sans antialiased min-h-screen flex flex-col">
 
+    <!-- Login/Register Modal Overlay -->
+    <div id="auth-overlay" class="fixed inset-0 bg-space-black/95 backdrop-blur-md z-[9999] flex items-center justify-center">
+        <div class="glass-card max-w-md w-full p-8 rounded-3xl border border-white/10 space-y-6">
+            <div class="text-center space-y-2">
+                <div class="w-12 h-12 mx-auto rounded-xl bg-gradient-to-tr from-neon-purple to-neon-cyan flex items-center justify-center font-outfit font-extrabold text-2xl text-black">
+                    JP
+                </div>
+                <h3 class="text-xl font-bold font-outfit text-white" id="auth-title">Welcome Back</h3>
+                <p class="text-xs text-slate-400" id="auth-subtitle">Sign in to access your Career Alignment Engine</p>
+            </div>
+            
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+                <div class="space-y-1">
+                    <label class="block text-xxs font-bold uppercase tracking-wider text-slate-400">Email Address</label>
+                    <input type="email" id="auth-email" required class="w-full bg-space-black border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-neon-cyan transition" placeholder="you@example.com">
+                </div>
+                <div class="space-y-1">
+                    <label class="block text-xxs font-bold uppercase tracking-wider text-slate-400">Password</label>
+                    <input type="password" id="auth-password" required class="w-full bg-space-black border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-neon-cyan transition" placeholder="••••••••">
+                </div>
+                
+                <button type="submit" id="btn-auth-submit" class="w-full py-3 bg-neon-cyan hover:bg-neon-cyan/85 text-black font-bold rounded-xl text-sm transition duration-200">
+                    SIGN IN
+                </button>
+            </form>
+            
+            <div class="text-center">
+                <button onclick="toggleAuthMode()" id="btn-toggle-auth" class="text-xs text-slate-400 hover:text-neon-cyan transition">
+                    Don't have an account? Sign up
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Top Header -->
     <header class="glass-card border-b space-border py-4 px-6 flex justify-between items-center sticky top-0 z-50">
         <div class="flex items-center space-x-3">
@@ -135,18 +169,29 @@
             </div>
             
             <div class="pt-6 border-t border-white/5 flex-1 flex flex-col justify-end space-y-4">
-                <div class="glass-card p-4 rounded-xl space-y-2">
-                    <label class="block text-xxs font-bold uppercase tracking-wider text-slate-500 font-outfit">Local Access Key</label>
-                    <div class="relative flex items-center">
-                        <input type="password" id="input-api-key" class="w-full bg-space-black border border-white/10 rounded-lg pl-3 pr-10 py-1.5 text-xs text-slate-300 font-mono focus:outline-none focus:border-neon-cyan transition" placeholder="Enter key..." value="personal-secret-key-123" onchange="saveApiKey()" />
-                        <button onclick="toggleKeyVisibility()" class="absolute right-3 text-slate-500 hover:text-slate-300 focus:outline-none">
-                            <svg id="eye-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                        </button>
+                <div class="glass-card p-4 rounded-xl space-y-3">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 rounded bg-gradient-to-tr from-neon-purple to-neon-cyan flex items-center justify-center font-outfit font-bold text-xs text-black" id="sidebar-avatar">
+                            U
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold text-white truncate" id="sidebar-email">user@email.com</p>
+                            <p class="text-xxs text-slate-500 uppercase font-semibold">Active Session</p>
+                        </div>
                     </div>
-                    <p class="text-xxs text-slate-500 leading-relaxed">Matches the `API_KEY` set in your `.env` file (Default: `personal-secret-key-123`). This is **not** your Google Gemini key.</p>
+                    
+                    <div class="space-y-1">
+                        <label class="block text-xxs font-bold uppercase tracking-wider text-slate-500 font-outfit">Gemini key override</label>
+                        <input type="password" id="input-gemini-key" class="w-full bg-space-black border border-white/10 rounded-lg px-2.5 py-1.5 text-xxs text-slate-300 font-mono focus:outline-none focus:border-neon-cyan transition" placeholder="Optional personal key..." onchange="saveProfileKeys()" />
+                    </div>
+                    <div class="space-y-1">
+                        <label class="block text-xxs font-bold uppercase tracking-wider text-slate-500 font-outfit">Teal key override</label>
+                        <input type="password" id="input-teal-key" class="w-full bg-space-black border border-white/10 rounded-lg px-2.5 py-1.5 text-xxs text-slate-300 font-mono focus:outline-none focus:border-neon-cyan transition" placeholder="Optional personal key..." onchange="saveProfileKeys()" />
+                    </div>
+
+                    <button onclick="handleLogOut()" class="w-full py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold rounded-lg text-xxs transition duration-200 border border-red-500/25">
+                        LOG OUT
+                    </button>
                 </div>
                 <div class="glass-card p-4 rounded-xl space-y-3">
                     <p class="text-xs font-bold text-neon-cyan font-outfit">Need Deep Diagnostics?</p>
@@ -228,7 +273,7 @@
                         <!-- Resume Input -->
                         <div class="glass-card p-6 rounded-2xl space-y-3">
                             <label class="block text-sm font-bold text-white font-outfit">Your Résumé (Text Content)</label>
-                            <textarea id="input-resume" rows="12" class="w-full bg-space-black border space-border rounded-xl p-4 text-sm text-slate-300 focus:outline-none focus:border-neon-cyan transition" placeholder="Paste your full plaintext resume details here..."></textarea>
+                            <textarea id="input-resume" rows="12" class="w-full bg-space-black border space-border rounded-xl p-4 text-sm text-slate-300 focus:outline-none focus:border-neon-cyan transition" placeholder="Paste your full plaintext resume details here..." onchange="saveProfileResume(this.value)"></textarea>
                         </div>
 
                         <!-- Job URLs Input -->
@@ -347,48 +392,153 @@
 
     <!-- Script Logic -->
     <script>
-        // Key Storage Helpers
-        function toggleKeyVisibility() {
-            const keyInput = document.getElementById('input-api-key');
-            const eyeIcon = document.getElementById('eye-icon');
-            if (keyInput.type === 'password') {
-                keyInput.type = 'text';
-                eyeIcon.innerHTML = `
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" />
-                `;
-            } else {
-                keyInput.type = 'password';
-                eyeIcon.innerHTML = `
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                `;
+        // Authentication state
+        let authMode = 'login'; // 'login' or 'register'
+
+        function toggleAuthMode() {
+            authMode = authMode === 'login' ? 'register' : 'login';
+            document.getElementById('auth-title').innerText = authMode === 'login' ? 'Welcome Back' : 'Create Account';
+            document.getElementById('auth-subtitle').innerText = authMode === 'login' ? 'Sign in to access your Career Alignment Engine' : 'Register a new account to get started';
+            document.getElementById('btn-auth-submit').innerText = authMode === 'login' ? 'SIGN IN' : 'REGISTER';
+            document.getElementById('btn-toggle-auth').innerText = authMode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Sign in';
+        }
+
+        function getHeaders() {
+            const token = localStorage.getItem('token');
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            return headers;
+        }
+
+        async function handleAuthSubmit(event) {
+            event.preventDefault();
+            const email = document.getElementById('auth-email').value.trim();
+            const password = document.getElementById('auth-password').value;
+            const btn = document.getElementById('btn-auth-submit');
+            
+            btn.disabled = true;
+            btn.innerText = authMode === 'login' ? 'SIGNING IN...' : 'REGISTERING...';
+
+            try {
+                if (authMode === 'register') {
+                    // Registration
+                    const resp = await fetch('/api/v1/auth/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
+                    if (!resp.ok) {
+                        const err = await resp.json();
+                        throw new Error(err.detail || 'Registration failed');
+                    }
+                    // Auto switch to login
+                    authMode = 'login';
+                }
+
+                // Authentication (OAuth2 Token endpoint accepts Form-Urlencoded parameters)
+                const formData = new URLSearchParams();
+                formData.append('username', email);
+                formData.append('password', password);
+
+                const resp = await fetch('/api/v1/auth/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData.toString()
+                });
+                
+                if (!resp.ok) {
+                    const err = await resp.json();
+                    throw new Error(err.detail || 'Invalid email or password');
+                }
+
+                const data = await resp.json();
+                localStorage.setItem('token', data.access_token);
+                
+                // Hide overlay and bootstrap interface
+                document.getElementById('auth-overlay').classList.add('hidden');
+                await initializeApp();
+
+            } catch (e) {
+                alert(e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = authMode === 'login' ? 'SIGN IN' : 'REGISTER';
             }
         }
 
-        function getApiKey() {
-            const key = document.getElementById('input-api-key').value.trim();
-            localStorage.setItem('api_key', key);
-            return key;
+        async function initializeApp() {
+            // Load user profile keys & data
+            await loadUserProfile();
+            await loadResumeTemplate();
+            await loadJobsTemplate();
+            updateWorkersStatus();
         }
 
-        function saveApiKey() {
-            getApiKey();
-            // Reload templates on key change
-            loadResumeTemplate();
-            loadJobsTemplate();
+        async function loadUserProfile() {
+            try {
+                const resp = await fetch('/api/v1/auth/me', { headers: getHeaders() });
+                if (resp.ok) {
+                    const profile = await resp.json();
+                    document.getElementById('sidebar-email').innerText = profile.email;
+                    document.getElementById('sidebar-avatar').innerText = profile.email.charAt(0).toUpperCase();
+                    document.getElementById('input-gemini-key').value = profile.gemini_api_key || '';
+                    document.getElementById('input-teal-key').value = profile.teal_api_key || '';
+                } else if (resp.status === 401) {
+                    handleLogOut();
+                }
+            } catch(e) {}
+        }
+
+        async function saveProfileKeys() {
+            const gemini = document.getElementById('input-gemini-key').value.trim();
+            const teal = document.getElementById('input-teal-key').value.trim();
+            try {
+                const resp = await fetch('/api/v1/auth/me', {
+                    method: 'PUT',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ gemini_api_key: gemini, teal_api_key: teal })
+                });
+                if (resp.ok) {
+                    console.log("Keys updated successfully");
+                }
+            } catch(e) {}
+        }
+
+        async function saveProfileResume(resumeText) {
+            try {
+                await fetch('/api/v1/auth/me', {
+                    method: 'PUT',
+                    headers: getHeaders(),
+                    body: JSON.stringify({ resume_text: resumeText })
+                });
+            } catch(e) {}
+        }
+
+        function handleLogOut() {
+            localStorage.removeItem('token');
+            document.getElementById('auth-overlay').classList.remove('hidden');
+            document.getElementById('sidebar-email').innerText = 'offline';
+            document.getElementById('input-gemini-key').value = '';
+            document.getElementById('input-teal-key').value = '';
         }
 
         // Load settings / defaults on startup
         window.addEventListener('DOMContentLoaded', async () => {
-            const savedKey = localStorage.getItem('api_key');
-            if (savedKey) {
-                document.getElementById('input-api-key').value = savedKey;
+            const token = localStorage.getItem('token');
+            if (token) {
+                document.getElementById('auth-overlay').classList.add('hidden');
+                await initializeApp();
+            } else {
+                document.getElementById('auth-overlay').classList.remove('hidden');
             }
-            loadResumeTemplate();
-            loadJobsTemplate();
-            updateWorkersStatus();
-            // Poll worker status every 10 seconds
-            setInterval(updateWorkersStatus, 10000);
+            // Poll worker status every 10 seconds if authenticated
+            setInterval(() => {
+                if (localStorage.getItem('token')) {
+                    updateWorkersStatus();
+                }
+            }, 10000);
         });
 
         // Toggle active tabs
@@ -413,7 +563,7 @@
         async function loadResumeTemplate() {
             try {
                 const resp = await fetch('/api/v1/profile/resume', {
-                    headers: { 'X-API-Key': getApiKey() }
+                    headers: getHeaders()
                 });
                 if (resp.ok) {
                     const data = await resp.json();
@@ -425,7 +575,7 @@
         async function loadJobsTemplate() {
             try {
                 const resp = await fetch('/api/v1/profile/jobs', {
-                    headers: { 'X-API-Key': getApiKey() }
+                    headers: getHeaders()
                 });
                 if (resp.ok) {
                     const data = await resp.json();
@@ -438,7 +588,7 @@
         async function updateWorkersStatus() {
             try {
                 const resp = await fetch('/api/v1/workers/status', {
-                    headers: { 'X-API-Key': getApiKey() }
+                    headers: getHeaders()
                 });
                 if (!resp.ok) throw new Error('API down');
                 const data = await resp.json();
@@ -508,10 +658,7 @@
             try {
                 const resp = await fetch('/api/v1/jobs/discover', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-API-Key': getApiKey()
-                    },
+                    headers: getHeaders(),
                     body: JSON.stringify({ resume_text: resume })
                 });
 
@@ -572,10 +719,7 @@
             try {
                 const resp = await fetch('/api/v1/pipeline', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'X-API-Key': getApiKey()
-                    },
+                    headers: getHeaders(),
                     body: JSON.stringify({
                         urls: urls,
                         resume_text: resume,
@@ -625,7 +769,7 @@
                 attempt++;
                 try {
                     const resp = await fetch(`/api/v1/tasks/${taskId}`, {
-                        headers: { 'X-API-Key': getApiKey() }
+                        headers: getHeaders()
                     });
                     if (!resp.ok) return;
                     
@@ -801,23 +945,18 @@
             const historyList = document.getElementById('history-list');
             historyList.innerHTML = `
                 <div class="glass-card p-8 rounded-2xl text-center">
-                    <p class="text-slate-400 animate-pulse">Loading execution logs from Cloud Redis...</p>
+                    <p class="text-slate-400 animate-pulse">Loading execution logs...</p>
                 </div>`;
                 
             try {
-                const headers = { 'Content-Type': 'application/json' };
-                const apiKey = getApiKey();
-                if (apiKey) {
-                    headers['X-API-Key'] = apiKey;
-                }
-                const response = await fetch('/api/v1/pipeline/history', { headers });
+                const response = await fetch('/api/v1/pipeline/history', { headers: getHeaders() });
                 if (!response.ok) throw new Error('Failed to load history');
                 const data = await response.json();
                 
                 if (data.length === 0) {
                     historyList.innerHTML = `
                         <div class="glass-card p-8 rounded-2xl text-center space-y-3">
-                            <p class="text-slate-400">No previous runs saved in Cloud Redis yet.</p>
+                            <p class="text-slate-400">No previous runs saved yet.</p>
                             <p class="text-xs text-slate-500">History will record automatically when a new pipeline execution finishes successfully.</p>
                         </div>`;
                     return;
