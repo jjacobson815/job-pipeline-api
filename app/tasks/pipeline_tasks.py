@@ -91,33 +91,16 @@ def analyse_job(
     resume_text: str,
     kind: str = "fit_score",
     model: str = "gpt-4o-mini",
+    gemini_api_key: str | None = None,
 ) -> dict:
-    """Run LLM analysis on a job description / résumé pair.
-
-    Parameters
-    ----------
-    job_description:
-        The full job description text.
-    resume_text:
-        The candidate's résumé text.
-    kind:
-        Analysis type (``fit_score``, ``keyword_extraction``,
-        ``cover_letter_draft``, ``summary``).
-    model:
-        OpenAI model to use.
-
-    Returns
-    -------
-    dict
-        Serialised ``AnalysisResponse`` or ``AnalysisError``.
-    """
+    """Run LLM analysis on a job description / résumé pair."""
     request = AnalysisRequest(
         kind=AnalysisKind(kind),
         job_description=job_description,
         resume_text=resume_text,
         model=model,
     )
-    service = LLMAnalysisService()
+    service = LLMAnalysisService(gemini_api_key=gemini_api_key)
 
     try:
         result = _run_async(service.analyse(request))
@@ -135,24 +118,16 @@ def analyse_job(
     default_retry_delay=20,
     acks_late=True,
 )
-def sync_to_teal(self: Any, jobs_data: list[dict], dry_run: bool = False) -> dict:
-    """Push a batch of jobs to the Teal tracker.
-
-    Parameters
-    ----------
-    jobs_data:
-        List of dicts matching ``TealJobPayload`` schema.
-    dry_run:
-        If ``True``, validate without actually creating in Teal.
-
-    Returns
-    -------
-    dict
-        Serialised ``TealSyncResult``.
-    """
+def sync_to_teal(
+    self: Any,
+    jobs_data: list[dict],
+    dry_run: bool = False,
+    teal_api_key: str | None = None,
+) -> dict:
+    """Push a batch of jobs to the Teal tracker."""
     payloads = [TealJobPayload(**jd) for jd in jobs_data]
     request = TealSyncRequest(jobs=payloads, dry_run=dry_run)
-    service = TealSyncService()
+    service = TealSyncService(api_key=teal_api_key)
 
     try:
         result = _run_async(service.sync_batch(request))
@@ -180,16 +155,11 @@ def full_pipeline(
     source: str = "custom",
     analysis_kind: str = "fit_score",
     sync_to_teal_flag: bool = True,
+    user_id: int | None = None,
+    gemini_api_key: str | None = None,
+    teal_api_key: str | None = None,
 ) -> dict:
-    """End-to-end pipeline: ingest → analyse → sync.
-
-    Orchestrates the three domain services sequentially for a batch of URLs.
-
-    Returns
-    -------
-    dict
-        Combined results from all three stages.
-    """
+    """End-to-end pipeline: ingest → analyse → sync."""
     # Stage 1: Ingest
     board = JobBoardSource(source)
     targets = [ScrapeTarget(url=u, source=board) for u in urls]
@@ -204,7 +174,7 @@ def full_pipeline(
 
     # Stage 2: Analyse each successfully ingested job concurrently
     analysis_results: list[dict] = []
-    analysis_service = LLMAnalysisService()
+    analysis_service = LLMAnalysisService(gemini_api_key=gemini_api_key)
     succeeded_jobs = ingestion_result.get("succeeded", [])
     if succeeded_jobs:
         requests = [
@@ -239,7 +209,7 @@ def full_pipeline(
         ]
         payloads = [TealJobPayload(**jd) for jd in teal_payloads]
         sync_request = TealSyncRequest(jobs=payloads, dry_run=False)
-        sync_service = TealSyncService()
+        sync_service = TealSyncService(api_key=teal_api_key)
         try:
             sync_result_obj = _run_async(sync_service.sync_batch(sync_request))
             teal_result = sync_result_obj.model_dump(mode="json")
@@ -253,21 +223,15 @@ def full_pipeline(
         "teal_sync": teal_result,
     }
 
-    # Persist the run metadata and result to Redis for historical tracking
+    # Persist the run metadata and result to Database (user-specific) or Redis (global fallback)
     try:
         import json
         import time
-        import redis
-        from app.core.config import get_settings
 
-        settings = get_settings()
-        r = redis.Redis.from_url(settings.redis_url_str)
         run_id = self.request.id or f"run_{int(time.time())}"
-        
         succeeded_count = len(ingestion_result.get("succeeded", []))
         total_count = len(urls)
         
-        # Calculate average score of successfully analyzed jobs
         valid_scores = [
             a["fit_score"]["overall_score"]
             for a in analysis_results
@@ -275,20 +239,47 @@ def full_pipeline(
         ]
         avg_score = sum(valid_scores) / len(valid_scores) if valid_scores else 0.0
 
-        run_summary = {
-            "run_id": run_id,
-            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            "total_jobs": total_count,
-            "succeeded_jobs": succeeded_count,
-            "avg_score": round(avg_score, 1),
-            "result": result
-        }
-        
-        # Save run summary to Redis list and keep it capped at last 20 entries
-        r.lpush("pipeline:runs", json.dumps(run_summary))
-        r.ltrim("pipeline:runs", 0, 19)
-        logger.info("Successfully persisted pipeline run %s to Redis history", run_id)
+        if user_id is not None:
+            # Persistent Relational DB flow
+            from app.core.database import SessionLocal
+            from app.domains.auth.models import PipelineRun
+
+            db = SessionLocal()
+            try:
+                run = PipelineRun(
+                    user_id=user_id,
+                    run_id=run_id,
+                    timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                    total_jobs=total_count,
+                    succeeded_jobs=succeeded_count,
+                    avg_score=round(avg_score, 1),
+                    result_json=json.dumps(result),
+                )
+                db.add(run)
+                db.commit()
+                logger.info("Successfully persisted user %d pipeline run %s to Database", user_id, run_id)
+            finally:
+                db.close()
+        else:
+            # Fallback to general Redis log for local CLI / mock tests
+            import redis
+            from app.core.config import get_settings
+
+            settings = get_settings()
+            r = redis.Redis.from_url(settings.redis_url_str)
+            run_summary = {
+                "run_id": run_id,
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "total_jobs": total_count,
+                "succeeded_jobs": succeeded_count,
+                "avg_score": round(avg_score, 1),
+                "result": result
+            }
+            r.lpush("pipeline:runs", json.dumps(run_summary))
+            r.ltrim("pipeline:runs", 0, 19)
+            logger.info("Successfully persisted pipeline run %s to Redis fallback history", run_id)
+
     except Exception as persist_exc:
-        logger.warning("Failed to persist pipeline run to Redis history: %s", persist_exc)
+        logger.warning("Failed to persist pipeline run: %s", persist_exc)
 
     return result

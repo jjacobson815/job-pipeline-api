@@ -17,8 +17,12 @@ from fastapi import FastAPI, HTTPException, status, APIRouter, Depends, Header
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, HttpUrl
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.database import get_db
+from app.domains.auth.models import User
+from app.domains.auth.routes import router as auth_router, get_current_user
 from app.domains.job_ingestion.models import JobBoardSource
 from app.tasks.pipeline_tasks import analyse_job, full_pipeline, ingest_jobs, sync_to_teal
 from app.core.celery_app import celery_app
@@ -33,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Validate configuration eagerly on startup."""
+    """Validate configuration and initialize database tables on startup."""
     settings = get_settings()
     logger.info(
         "Starting %s v%s [%s]",
@@ -41,6 +45,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.app_version,
         settings.environment,
     )
+    
+    # Eagerly initialize SQLite/PostgreSQL database tables
+    try:
+        from app.core.database import Base, engine
+        from app.domains.auth.models import User, PipelineRun
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables initialized successfully.")
+    except Exception as db_exc:
+        logger.error("Failed to initialize database tables: %s", db_exc)
+
     yield
     logger.info("Shutting down %s", settings.app_name)
 
@@ -73,7 +87,7 @@ class PipelineRequest(BaseModel):
         max_length=10, 
         description="Job URLs to process (max 10)."
     )
-    resume_text: str = Field(min_length=1)
+    resume_text: str | None = Field(default=None)
     source: str = Field(default="custom")
     analysis_kind: str = Field(default="fit_score")
     sync_to_teal: bool = True
@@ -83,7 +97,7 @@ class TaskResponse(BaseModel):
     status: str = "queued"
 
 class DiscoverRequest(BaseModel):
-    resume_text: str = Field(min_length=1)
+    resume_text: str | None = Field(default=None)
 
 
 # ---------------------------------------------------------------------------
@@ -119,9 +133,11 @@ def create_app() -> FastAPI:
     async def health() -> dict[str, str]:
         return {"status": "healthy", "version": settings.app_version}
 
-    # --- APIRouter (Authenticated) ----------------------------------------
+    # --- Public Authentication Router --------------------------------------
+    app.include_router(auth_router, prefix="/api/v1")
 
-    api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(verify_api_key)])
+    # --- APIRouter (Authenticated) ----------------------------------------
+    api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(get_current_user)])
 
     @api_router.post(
         "/ingest",
@@ -140,10 +156,18 @@ def create_app() -> FastAPI:
         status_code=status.HTTP_202_ACCEPTED,
         tags=["pipeline"],
     )
-    async def trigger_analyse(body: AnalyseRequest) -> TaskResponse:
+    async def trigger_analyse(
+        body: AnalyseRequest,
+        current_user: User = Depends(get_current_user)
+    ) -> TaskResponse:
         """Queue an LLM analysis task."""
+        gemini_key = current_user.gemini_api_key or settings.gemini_api_key
         task = analyse_job.delay(
-            body.job_description, body.resume_text, body.kind, body.model
+            body.job_description,
+            body.resume_text or current_user.resume_text,
+            body.kind,
+            body.model,
+            gemini_api_key=gemini_key,
         )
         return TaskResponse(task_id=task.id)
 
@@ -153,9 +177,13 @@ def create_app() -> FastAPI:
         status_code=status.HTTP_202_ACCEPTED,
         tags=["pipeline"],
     )
-    async def trigger_sync(body: SyncRequest) -> TaskResponse:
+    async def trigger_sync(
+        body: SyncRequest,
+        current_user: User = Depends(get_current_user)
+    ) -> TaskResponse:
         """Queue a Teal-sync task."""
-        task = sync_to_teal.delay(body.jobs, body.dry_run)
+        teal_key = current_user.teal_api_key or settings.teal_api_key
+        task = sync_to_teal.delay(body.jobs, body.dry_run, teal_api_key=teal_key)
         return TaskResponse(task_id=task.id)
 
     @api_router.post(
@@ -164,14 +192,23 @@ def create_app() -> FastAPI:
         status_code=status.HTTP_202_ACCEPTED,
         tags=["pipeline"],
     )
-    async def trigger_full_pipeline(body: PipelineRequest) -> TaskResponse:
+    async def trigger_full_pipeline(
+        body: PipelineRequest,
+        current_user: User = Depends(get_current_user)
+    ) -> TaskResponse:
         """Queue the full ingest → analyse → sync pipeline."""
+        gemini_key = current_user.gemini_api_key or settings.gemini_api_key
+        teal_key = current_user.teal_api_key or settings.teal_api_key
+
         task = full_pipeline.delay(
             [str(u) for u in body.urls],
-            body.resume_text,
+            body.resume_text or current_user.resume_text,
             body.source,
             body.analysis_kind,
             body.sync_to_teal,
+            user_id=current_user.id,
+            gemini_api_key=gemini_key,
+            teal_api_key=teal_key,
         )
         return TaskResponse(task_id=task.id)
 
@@ -179,28 +216,54 @@ def create_app() -> FastAPI:
         "/jobs/discover",
         tags=["pipeline"]
     )
-    async def discover_jobs(body: DiscoverRequest) -> dict:
+    async def discover_jobs(
+        body: DiscoverRequest,
+        current_user: User = Depends(get_current_user)
+    ) -> dict:
         """Discover relevant job URLs based on resume details."""
         from app.domains.job_search.services import JobSearchService
         service = JobSearchService()
-        return await service.discover_jobs(body.resume_text)
+        resume_text = body.resume_text or current_user.resume_text
+        if not resume_text:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No resume text provided or saved in profile."
+            )
+        return await service.discover_jobs(resume_text)
 
     @api_router.get(
         "/pipeline/history",
         tags=["pipeline"],
     )
-    async def get_pipeline_history() -> list[dict]:
-        """Fetch the history of previous pipeline runs from Redis."""
+    async def get_pipeline_history(
+        current_user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+    ) -> list[dict]:
+        """Fetch the history of previous pipeline runs from Database."""
+        from app.domains.auth.models import PipelineRun
         import json
-        import redis
 
-        try:
-            r = redis.Redis.from_url(settings.redis_url_str)
-            runs = r.lrange("pipeline:runs", 0, -1)
-            return [json.loads(run) for run in runs]
-        except Exception as exc:
-            logger.warning("Failed to fetch pipeline history from Redis: %s", exc)
-            return []
+        runs = (
+            db.query(PipelineRun)
+            .filter(PipelineRun.user_id == current_user.id)
+            .order_by(PipelineRun.id.desc())
+            .all()
+        )
+        results = []
+        for run in runs:
+            try:
+                res_data = json.loads(run.result_json)
+            except Exception:
+                res_data = {}
+            results.append({
+                "run_id": run.run_id,
+                "timestamp": run.timestamp,
+                "total_jobs": run.total_jobs,
+                "succeeded_jobs": run.succeeded_jobs,
+                "avg_score": run.avg_score,
+                "result": res_data
+            })
+        return results
 
     @api_router.get(
         "/tasks/{task_id}",
@@ -265,13 +328,9 @@ def create_app() -> FastAPI:
             }
 
     @api_router.get("/profile/resume", tags=["profile"])
-    async def get_resume() -> dict[str, str]:
-        """Read and return default resume contents securely."""
-        path = os.path.join(os.path.dirname(__file__), "data", "resume.txt")
-        if not os.path.exists(path):
-            raise HTTPException(status_code=404, detail="Resume template not found")
-        with open(path, "r", encoding="utf-8") as f:
-            return {"resume_text": f.read()}
+    async def get_resume(current_user: User = Depends(get_current_user)) -> dict[str, str]:
+        """Return user resume contents or empty string."""
+        return {"resume_text": current_user.resume_text or ""}
 
     @api_router.get("/profile/jobs", tags=["profile"])
     async def get_jobs() -> dict[str, str]:
